@@ -1,5 +1,11 @@
 # Lettermint Python SDK
 
+[![PyPI Version](https://img.shields.io/pypi/v/lettermint?style=flat-square)](https://pypi.org/project/lettermint/)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/lettermint?style=flat-square)](https://pypi.org/project/lettermint/)
+[![Python Version](https://img.shields.io/pypi/pyversions/lettermint?style=flat-square)](https://pypi.org/project/lettermint/)
+[![GitHub Tests](https://img.shields.io/github/actions/workflow/status/lettermint/lettermint-python/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/lettermint/lettermint-python/actions?query=workflow%3ACI+branch%3Amain)
+[![License](https://img.shields.io/github/license/lettermint/lettermint-python?style=flat-square)](https://github.com/lettermint/lettermint-python/blob/main/LICENSE)
+
 Official Python SDK for the [Lettermint](https://lettermint.co) email API.
 
 ## Installation

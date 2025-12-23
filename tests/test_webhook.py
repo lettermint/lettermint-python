@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import time
+from typing import Optional, Tuple
 
 import pytest
 
@@ -17,8 +18,8 @@ from lettermint.exceptions import (
 
 
 def generate_valid_signature(
-    payload: str, secret: str, timestamp: int | None = None
-) -> tuple[str, int]:
+    payload: str, secret: str, timestamp: Optional[int] = None
+) -> Tuple[str, int]:
     """Generate a valid signature for testing."""
     ts = timestamp or int(time.time())
     signed_content = f"{ts}.{payload}"
