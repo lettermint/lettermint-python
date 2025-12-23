@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import platform
+from importlib.metadata import version
 from typing import Any
 
 import httpx
@@ -41,6 +43,7 @@ class LettermintClient:
             headers={
                 "Content-Type": "application/json",
                 "Accept": "application/json",
+                "User-Agent": f"Lettermint/{version('lettermint')} (Python; python {platform.python_version()})",
                 "x-lettermint-token": self._api_token,
             },
         )
@@ -218,6 +221,7 @@ class AsyncLettermintClient:
             headers={
                 "Content-Type": "application/json",
                 "Accept": "application/json",
+                "User-Agent": f"Lettermint/{version('lettermint')} (Python; python {platform.python_version()})",
                 "x-lettermint-token": self._api_token,
             },
         )
