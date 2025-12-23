@@ -1,3 +1,5 @@
+name: Discord Notification
+
 on:
   release:
     types: [published]
@@ -12,6 +14,6 @@ jobs:
       - name: Discord Release Webhook
         uses: lettermint/action-discord-releases@v1.0.1
         with:
-          color: '3776ab'
+          color: '4584b6'
           webhook_url: ${{ secrets.DISCORD_RELEASE_WEBHOOK_URL }}
           content: 'A new release for the Lettermint Python SDK is now available! ||@Python||'

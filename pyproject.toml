@@ -82,18 +82,3 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["lettermint"]
-
-[tool.semantic_release]
-version_toml = ["pyproject.toml:project.version"]
-version_variables = ["src/lettermint/__init__.py:__version__"]
-branch = "main"
-build_command = "pip install build && python -m build"
-commit_message = "chore(release): {version} [skip ci]"
-
-[tool.semantic_release.changelog]
-changelog_file = "CHANGELOG.md"
-
-[tool.semantic_release.commit_parser_options]
-allowed_tags = ["build", "chore", "ci", "docs", "feat", "fix", "perf", "style", "refactor", "test"]
-minor_tags = ["feat"]
-patch_tags = ["fix", "perf"]
