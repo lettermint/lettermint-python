@@ -54,7 +54,7 @@ from .lettermint import AsyncLettermint, Lettermint
 from .types import EmailAttachment, EmailPayload, EmailStatus, SendEmailResponse
 from .webhook import Webhook
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 
 __all__ = [
     # Main clients
