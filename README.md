@@ -5,6 +5,7 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/lettermint?style=flat-square)](https://pypi.org/project/lettermint/)
 [![GitHub Tests](https://img.shields.io/github/actions/workflow/status/lettermint/lettermint-python/ci.yml?branch=main&label=tests&style=flat-square)](https://github.com/lettermint/lettermint-python/actions?query=workflow%3ACI+branch%3Amain)
 [![License](https://img.shields.io/github/license/lettermint/lettermint-python?style=flat-square)](https://github.com/lettermint/lettermint-python/blob/main/LICENSE)
+[![Join our Discord server](https://img.shields.io/discord/1305510095588819035?logo=discord&logoColor=eee&label=Discord&labelColor=464ce5&color=0D0E28&cacheSeconds=43200)](https://lettermint.co/r/discord)
 
 Official Python SDK for the [Lettermint](https://lettermint.co) email API.
 
