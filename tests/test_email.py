@@ -1,11 +1,14 @@
 """Tests for the email endpoint."""
 
+import asyncio
+import json
+
 import pytest
 import respx
 from httpx import Response
 
 from lettermint import AsyncLettermint, Lettermint
-from lettermint.exceptions import ClientError, TimeoutError, ValidationError
+from lettermint.exceptions import ClientError, ValidationError
 
 
 class TestEmailEndpointSync:
@@ -80,9 +83,9 @@ class TestEmailEndpointSync:
         )
 
         with Lettermint(api_token=api_token) as client:
-            client.email.from_("sender@example.com").to("recipient@example.com").subject(
-                "Test"
-            ).cc("cc1@example.com", "cc2@example.com").bcc("bcc@example.com").send()
+            client.email.from_("sender@example.com").to("recipient@example.com").subject("Test").cc(
+                "cc1@example.com", "cc2@example.com"
+            ).bcc("bcc@example.com").send()
 
         import json
 
@@ -206,11 +209,10 @@ class TestEmailEndpointSync:
             return_value=Response(422, json={"error": "DailyLimitExceeded"})
         )
 
-        with Lettermint(api_token=api_token) as client:
-            with pytest.raises(ValidationError) as exc_info:
-                client.email.from_("sender@example.com").to("recipient@example.com").subject(
-                    "Test"
-                ).send()
+        with Lettermint(api_token=api_token) as client, pytest.raises(ValidationError) as exc_info:
+            client.email.from_("sender@example.com").to("recipient@example.com").subject(
+                "Test"
+            ).send()
 
         assert exc_info.value.status_code == 422
         assert exc_info.value.error_type == "DailyLimitExceeded"
@@ -222,11 +224,10 @@ class TestEmailEndpointSync:
             return_value=Response(400, json={"error": "Invalid request"})
         )
 
-        with Lettermint(api_token=api_token) as client:
-            with pytest.raises(ClientError) as exc_info:
-                client.email.from_("sender@example.com").to("recipient@example.com").subject(
-                    "Test"
-                ).send()
+        with Lettermint(api_token=api_token) as client, pytest.raises(ClientError) as exc_info:
+            client.email.from_("sender@example.com").to("recipient@example.com").subject(
+                "Test"
+            ).send()
 
         assert exc_info.value.status_code == 400
 
@@ -348,3 +349,48 @@ class TestEmailEndpointAsync:
 
         request = route.calls.last.request
         assert request.headers["Idempotency-Key"] == "unique-key"
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_deferred_async_sends_use_payload_snapshots(self, api_token: str) -> None:
+        """Deferred async send coroutines must not share later builder mutations."""
+        route = respx.post("https://api.lettermint.co/v1/send").mock(
+            side_effect=[
+                Response(200, json={"message_id": "msg_1", "status": "pending"}),
+                Response(200, json={"message_id": "msg_2", "status": "pending"}),
+            ]
+        )
+
+        async with AsyncLettermint(api_token=api_token) as client:
+            first = (
+                client.email.from_("sender@example.com")
+                .to("first@example.com")
+                .subject("First")
+                .attach("secret.pdf", "base64secret")
+                .metadata({"invoice": "123"})
+                .idempotency_key("first-key")
+                .send()
+            )
+            second = (
+                client.email.from_("sender@example.com")
+                .to("second@example.com")
+                .subject("Second")
+                .send()
+            )
+
+            await asyncio.gather(first, second)
+
+        first_request = route.calls[0].request
+        second_request = route.calls[1].request
+        first_body = json.loads(first_request.content)
+        second_body = json.loads(second_request.content)
+
+        assert first_body["to"] == ["first@example.com"]
+        assert first_body["attachments"] == [{"filename": "secret.pdf", "content": "base64secret"}]
+        assert first_body["metadata"] == {"invoice": "123"}
+        assert first_request.headers["Idempotency-Key"] == "first-key"
+
+        assert second_body["to"] == ["second@example.com"]
+        assert "attachments" not in second_body
+        assert "metadata" not in second_body
+        assert "Idempotency-Key" not in second_request.headers

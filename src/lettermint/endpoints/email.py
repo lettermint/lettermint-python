@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Coroutine
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 if sys.version_info >= (3, 11):
@@ -10,7 +12,7 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
-from ..types import SendEmailResponse
+from ..types import SendBatchEmailResponse, SendEmailResponse
 from .endpoint import AsyncEndpoint, Endpoint
 
 if TYPE_CHECKING:
@@ -295,6 +297,15 @@ class EmailEndpoint(Endpoint):
         finally:
             self._reset()
 
+    def send_batch(self, payload: list[dict[str, Any]]) -> SendBatchEmailResponse:
+        """Send multiple emails in one batch."""
+        response: SendBatchEmailResponse = self._client.post("/send/batch", data=payload)
+        return response
+
+    def ping(self) -> str:
+        """Ping the Sending API."""
+        return self._client.get_raw("/ping").strip()
+
 
 class AsyncEmailEndpoint(AsyncEndpoint):
     """Asynchronous endpoint for sending emails.
@@ -515,7 +526,7 @@ class AsyncEmailEndpoint(AsyncEndpoint):
         self._payload["tag"] = tag
         return self
 
-    async def send(self) -> SendEmailResponse:
+    def send(self) -> Coroutine[Any, Any, SendEmailResponse]:
         """Send the composed email asynchronously.
 
         Returns:
@@ -527,16 +538,27 @@ class AsyncEmailEndpoint(AsyncEndpoint):
             ClientError: On client errors (400).
             TimeoutError: On request timeout.
         """
+        payload = deepcopy(self._payload)
         headers: dict[str, str] | None = None
         if self._idempotency_key is not None:
             headers = {"Idempotency-Key": self._idempotency_key}
+        self._reset()
 
-        try:
+        async def _send() -> SendEmailResponse:
             response: SendEmailResponse = await self._client.post(
                 "/send",
-                data=self._payload,
+                data=payload,
                 headers=headers,
             )
             return response
-        finally:
-            self._reset()
+
+        return _send()
+
+    async def send_batch(self, payload: list[dict[str, Any]]) -> SendBatchEmailResponse:
+        """Send multiple emails in one batch asynchronously."""
+        response: SendBatchEmailResponse = await self._client.post("/send/batch", data=payload)
+        return response
+
+    async def ping(self) -> str:
+        """Ping the Sending API asynchronously."""
+        return (await self._client.get_raw("/ping")).strip()

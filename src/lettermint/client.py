@@ -33,10 +33,12 @@ class LettermintClient:
         api_token: str,
         base_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
+        auth_scheme: str = "sending",
     ) -> None:
         self._api_token = api_token
         self._base_url = (base_url or DEFAULT_BASE_URL).rstrip("/")
         self._timeout = timeout
+        self._auth_scheme = auth_scheme
         self._client = httpx.Client(
             base_url=self._base_url,
             timeout=self._timeout,
@@ -44,7 +46,6 @@ class LettermintClient:
                 "Content-Type": "application/json",
                 "Accept": "application/json",
                 "User-Agent": f"Lettermint/{version('lettermint')} (Python; python {platform.python_version()})",
-                "x-lettermint-token": self._api_token,
             },
         )
 
@@ -94,6 +95,18 @@ class LettermintClient:
             response_body,
         )
 
+    def _request_headers(self, headers: dict[str, str] | None = None) -> dict[str, str]:
+        safe_headers = {
+            key: value
+            for key, value in (headers or {}).items()
+            if key.lower() not in {"authorization", "x-lettermint-token"}
+        }
+
+        if self._auth_scheme == "bearer":
+            return {**safe_headers, "Authorization": f"Bearer {self._api_token}"}
+
+        return {**safe_headers, "x-lettermint-token": self._api_token}
+
     def get(
         self,
         path: str,
@@ -115,8 +128,24 @@ class LettermintClient:
             TimeoutError: On request timeout.
         """
         try:
-            response = self._client.get(path, params=params, headers=headers)
+            response = self._client.get(path, params=params, headers=self._request_headers(headers))
             return self._handle_response(response)
+        except httpx.TimeoutException as e:
+            raise TimeoutError(f"Request timeout after {self._timeout}s") from e
+
+    def get_raw(
+        self,
+        path: str,
+        params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> str:
+        """Make a GET request and return the raw response body."""
+        try:
+            response = self._client.get(path, params=params, headers=self._request_headers(headers))
+            if response.is_success:
+                return response.text
+            self._handle_response(response)
+            raise AssertionError("unreachable")
         except httpx.TimeoutException as e:
             raise TimeoutError(f"Request timeout after {self._timeout}s") from e
 
@@ -141,7 +170,7 @@ class LettermintClient:
             TimeoutError: On request timeout.
         """
         try:
-            response = self._client.post(path, json=data, headers=headers)
+            response = self._client.post(path, json=data, headers=self._request_headers(headers))
             return self._handle_response(response)
         except httpx.TimeoutException as e:
             raise TimeoutError(f"Request timeout after {self._timeout}s") from e
@@ -167,7 +196,7 @@ class LettermintClient:
             TimeoutError: On request timeout.
         """
         try:
-            response = self._client.put(path, json=data, headers=headers)
+            response = self._client.put(path, json=data, headers=self._request_headers(headers))
             return self._handle_response(response)
         except httpx.TimeoutException as e:
             raise TimeoutError(f"Request timeout after {self._timeout}s") from e
@@ -175,6 +204,7 @@ class LettermintClient:
     def delete(
         self,
         path: str,
+        params: dict[str, str] | None = None,
         headers: dict[str, str] | None = None,
     ) -> Any:
         """Make a DELETE request to the API.
@@ -191,7 +221,11 @@ class LettermintClient:
             TimeoutError: On request timeout.
         """
         try:
-            response = self._client.delete(path, headers=headers)
+            response = self._client.delete(
+                path,
+                params=params,
+                headers=self._request_headers(headers),
+            )
             return self._handle_response(response)
         except httpx.TimeoutException as e:
             raise TimeoutError(f"Request timeout after {self._timeout}s") from e
@@ -211,10 +245,12 @@ class AsyncLettermintClient:
         api_token: str,
         base_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
+        auth_scheme: str = "sending",
     ) -> None:
         self._api_token = api_token
         self._base_url = (base_url or DEFAULT_BASE_URL).rstrip("/")
         self._timeout = timeout
+        self._auth_scheme = auth_scheme
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             timeout=self._timeout,
@@ -222,7 +258,6 @@ class AsyncLettermintClient:
                 "Content-Type": "application/json",
                 "Accept": "application/json",
                 "User-Agent": f"Lettermint/{version('lettermint')} (Python; python {platform.python_version()})",
-                "x-lettermint-token": self._api_token,
             },
         )
 
@@ -272,6 +307,18 @@ class AsyncLettermintClient:
             response_body,
         )
 
+    def _request_headers(self, headers: dict[str, str] | None = None) -> dict[str, str]:
+        safe_headers = {
+            key: value
+            for key, value in (headers or {}).items()
+            if key.lower() not in {"authorization", "x-lettermint-token"}
+        }
+
+        if self._auth_scheme == "bearer":
+            return {**safe_headers, "Authorization": f"Bearer {self._api_token}"}
+
+        return {**safe_headers, "x-lettermint-token": self._api_token}
+
     async def get(
         self,
         path: str,
@@ -293,8 +340,32 @@ class AsyncLettermintClient:
             TimeoutError: On request timeout.
         """
         try:
-            response = await self._client.get(path, params=params, headers=headers)
+            response = await self._client.get(
+                path,
+                params=params,
+                headers=self._request_headers(headers),
+            )
             return self._handle_response(response)
+        except httpx.TimeoutException as e:
+            raise TimeoutError(f"Request timeout after {self._timeout}s") from e
+
+    async def get_raw(
+        self,
+        path: str,
+        params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> str:
+        """Make a GET request and return the raw response body."""
+        try:
+            response = await self._client.get(
+                path,
+                params=params,
+                headers=self._request_headers(headers),
+            )
+            if response.is_success:
+                return response.text
+            self._handle_response(response)
+            raise AssertionError("unreachable")
         except httpx.TimeoutException as e:
             raise TimeoutError(f"Request timeout after {self._timeout}s") from e
 
@@ -319,7 +390,11 @@ class AsyncLettermintClient:
             TimeoutError: On request timeout.
         """
         try:
-            response = await self._client.post(path, json=data, headers=headers)
+            response = await self._client.post(
+                path,
+                json=data,
+                headers=self._request_headers(headers),
+            )
             return self._handle_response(response)
         except httpx.TimeoutException as e:
             raise TimeoutError(f"Request timeout after {self._timeout}s") from e
@@ -345,7 +420,11 @@ class AsyncLettermintClient:
             TimeoutError: On request timeout.
         """
         try:
-            response = await self._client.put(path, json=data, headers=headers)
+            response = await self._client.put(
+                path,
+                json=data,
+                headers=self._request_headers(headers),
+            )
             return self._handle_response(response)
         except httpx.TimeoutException as e:
             raise TimeoutError(f"Request timeout after {self._timeout}s") from e
@@ -353,6 +432,7 @@ class AsyncLettermintClient:
     async def delete(
         self,
         path: str,
+        params: dict[str, str] | None = None,
         headers: dict[str, str] | None = None,
     ) -> Any:
         """Make a DELETE request to the API.
@@ -369,7 +449,11 @@ class AsyncLettermintClient:
             TimeoutError: On request timeout.
         """
         try:
-            response = await self._client.delete(path, headers=headers)
+            response = await self._client.delete(
+                path,
+                params=params,
+                headers=self._request_headers(headers),
+            )
             return self._handle_response(response)
         except httpx.TimeoutException as e:
             raise TimeoutError(f"Request timeout after {self._timeout}s") from e
