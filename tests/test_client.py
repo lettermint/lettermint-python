@@ -8,7 +8,6 @@ from lettermint.client import AsyncLettermintClient, LettermintClient
 from lettermint.exceptions import (
     ClientError,
     HttpRequestError,
-    TimeoutError,
     ValidationError,
 )
 
@@ -54,7 +53,7 @@ class TestLettermintClientSync:
     @respx.mock
     def test_put_request(self) -> None:
         """Test PUT request."""
-        route = respx.put("https://api.lettermint.co/v1/test").mock(
+        respx.put("https://api.lettermint.co/v1/test").mock(
             return_value=Response(200, json={"result": "updated"})
         )
 
@@ -68,7 +67,7 @@ class TestLettermintClientSync:
     @respx.mock
     def test_delete_request(self) -> None:
         """Test DELETE request."""
-        route = respx.delete("https://api.lettermint.co/v1/test").mock(
+        respx.delete("https://api.lettermint.co/v1/test").mock(
             return_value=Response(200, json={"result": "deleted"})
         )
 
@@ -183,7 +182,7 @@ class TestAsyncLettermintClient:
     @pytest.mark.asyncio
     async def test_post_request_async(self) -> None:
         """Test async POST request."""
-        route = respx.post("https://api.lettermint.co/v1/test").mock(
+        respx.post("https://api.lettermint.co/v1/test").mock(
             return_value=Response(200, json={"result": "created"})
         )
 
