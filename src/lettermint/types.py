@@ -80,14 +80,6 @@ MessageAttachmentData = TypedDict(
     },
 )
 
-MessageRecipientData = TypedDict(
-    'MessageRecipientData',
-    {
-    'email': 'Required[str]',
-    'name': 'Required[str | None]',
-    },
-)
-
 SpamSymbol = TypedDict(
     'SpamSymbol',
     {
@@ -99,6 +91,14 @@ SpamSymbol = TypedDict(
 )
 
 MessageType: TypeAlias = Literal['inbound', 'outbound']
+MessageRecipientData = TypedDict(
+    'MessageRecipientData',
+    {
+    'email': 'Required[str]',
+    'name': 'Required[str | None]',
+    },
+)
+
 MessageData = TypedDict(
     'MessageData',
     {
@@ -163,26 +163,6 @@ MessageStatsData = TypedDict(
 )
 
 Plan: TypeAlias = Literal['free', 'starter', 'growth', 'pro']
-UserData = TypedDict(
-    'UserData',
-    {
-    'id': 'Required[str]',
-    'name': 'Required[str]',
-    'email': 'Required[str]',
-    'avatar': 'Required[str | None]',
-    },
-)
-
-TeamMemberData = TypedDict(
-    'TeamMemberData',
-    {
-    'id': 'Required[str]',
-    'user': 'NotRequired[UserData]',
-    'role': 'Required[str | None]',
-    'joined_at': 'Required[str | None]',
-    },
-)
-
 RouteType: TypeAlias = Literal['transactional', 'broadcast', 'inbound']
 RouteStatisticData = TypedDict(
     'RouteStatisticData',
@@ -218,9 +198,29 @@ RouteData = TypedDict(
     'project': 'NotRequired[ProjectData]',
     'webhooks_count': 'NotRequired[int]',
     'suppressed_recipients_count': 'NotRequired[int]',
-    'statistics': 'NotRequired[Union[dict[str, Any], list[RouteStatisticData]]]',
+    'statistics': 'NotRequired[dict[str, Any] | list[RouteStatisticData]]',
     'created_at': 'Required[str]',
     'updated_at': 'Required[str]',
+    },
+)
+
+UserData = TypedDict(
+    'UserData',
+    {
+    'id': 'Required[str]',
+    'name': 'Required[str]',
+    'email': 'Required[str]',
+    'avatar': 'Required[str | None]',
+    },
+)
+
+TeamMemberData = TypedDict(
+    'TeamMemberData',
+    {
+    'id': 'Required[str]',
+    'user': 'NotRequired[UserData]',
+    'role': 'Required[str | None]',
+    'joined_at': 'Required[str | None]',
     },
 )
 
@@ -240,7 +240,7 @@ ProjectData = TypedDict(
     'domains_count': 'NotRequired[int]',
     'team_members': 'NotRequired[list[TeamMemberData]]',
     'team_members_count': 'NotRequired[int]',
-    'last_28_days': 'NotRequired[Union[MessageStatsData, Any]]',
+    'last_28_days': 'NotRequired[MessageStatsData | Any]',
     'created_at': 'Required[str]',
     'updated_at': 'Required[str]',
     },
@@ -276,19 +276,19 @@ RouteListData = TypedDict(
     },
 )
 
+StatsInboundData = TypedDict(
+    'StatsInboundData',
+    {
+    'received': 'Required[int]',
+    },
+)
+
 StatsTypeData = TypedDict(
     'StatsTypeData',
     {
     'sent': 'Required[int]',
     'hard_bounced': 'Required[int]',
     'spam_complaints': 'Required[int]',
-    },
-)
-
-StatsInboundData = TypedDict(
-    'StatsInboundData',
-    {
-    'received': 'Required[int]',
     },
 )
 
@@ -303,8 +303,8 @@ StatsDailyData = TypedDict(
     'opened': 'Required[int | None]',
     'clicked': 'Required[int | None]',
     'inbound': 'Required[StatsInboundData]',
-    'transactional': 'Required[Union[StatsTypeData, Any]]',
-    'broadcast': 'Required[Union[StatsTypeData, Any]]',
+    'transactional': 'Required[StatsTypeData | Any]',
+    'broadcast': 'Required[StatsTypeData | Any]',
     'effective_opened': 'Required[int | None]',
     'machine_opened': 'Required[int | None]',
     'machine_clicked': 'Required[int | None]',
@@ -321,8 +321,8 @@ StatsTotalsData = TypedDict(
     'opened': 'Required[int | None]',
     'clicked': 'Required[int | None]',
     'inbound': 'Required[StatsInboundData]',
-    'transactional': 'Required[Union[StatsTypeData, Any]]',
-    'broadcast': 'Required[Union[StatsTypeData, Any]]',
+    'transactional': 'Required[StatsTypeData | Any]',
+    'broadcast': 'Required[StatsTypeData | Any]',
     'effective_opened': 'Required[int | None]',
     'machine_opened': 'Required[int | None]',
     'machine_clicked': 'Required[int | None]',
@@ -425,8 +425,8 @@ TeamAddonData = TypedDict(
     },
 )
 
-VolumeTier: TypeAlias = Literal[300, 10000, 50000, 125000, 500000, 750000, 1000000, 1500000]
 TeamType: TypeAlias = Literal['personal', 'business']
+VolumeTier: TypeAlias = Literal[300, 10000, 50000, 125000, 500000, 750000, 1000000, 1500000]
 TeamData = TypedDict(
     'TeamData',
     {
@@ -798,7 +798,7 @@ SuppressionStoreRequest: TypeAlias = StoreSuppressionData
 SuppressionStoreResponse = TypedDict(
     'SuppressionStoreResponse',
     {
-    'message': "Required[Union[str, Literal['No emails were added.']]]",
+    'message': "Required[str | Literal['No emails were added.']]",
     'data': 'Required[dict[str, Any]]',
     },
 )
