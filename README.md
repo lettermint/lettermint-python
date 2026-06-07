@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/github/license/lettermint/lettermint-python?style=flat-square)](https://github.com/lettermint/lettermint-python/blob/main/LICENSE)
 [![Join our Discord server](https://img.shields.io/discord/1305510095588819035?logo=discord&logoColor=eee&label=Discord&labelColor=464ce5&color=0D0E28&cacheSeconds=43200)](https://lettermint.co/r/discord)
 
-Official Python SDK for the [Lettermint](https://lettermint.co) email API.
+Official Python SDK for the [Lettermint](https://lettermint.co) sending and team APIs.
 
 ## Installation
 
@@ -22,10 +22,10 @@ pip install lettermint
 ```python
 from lettermint import Lettermint
 
-client = Lettermint(api_token="your-api-token")
+email = Lettermint.email("your-sending-token")
 
 response = (
-    client.email
+    email
     .from_("sender@example.com")
     .to("recipient@example.com")
     .subject("Hello from Python!")
@@ -42,16 +42,24 @@ print(response["message_id"])
 ```python
 from lettermint import AsyncLettermint
 
-async with AsyncLettermint(api_token="your-api-token") as client:
-    response = await (
-        client.email
-        .from_("sender@example.com")
-        .to("recipient@example.com")
-        .subject("Hello from Python!")
-        .html("<h1>Welcome!</h1>")
-        .send()
-    )
-    print(response["message_id"])
+email = AsyncLettermint.email("your-sending-token")
+
+response = await (
+    email
+    .from_("sender@example.com")
+    .to("recipient@example.com")
+    .subject("Hello from Python!")
+    .html("<h1>Welcome!</h1>")
+    .send()
+)
+print(response["message_id"])
+```
+
+The legacy constructor still works for sending-only usage:
+
+```python
+client = Lettermint(api_token="your-sending-token")
+client.email.from_("sender@example.com").to("recipient@example.com").subject("Hello").send()
 ```
 
 ## Email Options
@@ -146,6 +154,56 @@ client.email.from_("sender@example.com").to("recipient@example.com").subject(
 ).idempotency_key("unique-request-id").send()
 ```
 
+### Batch Sending
+
+```python
+email = Lettermint.email("your-sending-token")
+
+response = email.send_batch([
+    {
+        "from": "sender@example.com",
+        "to": ["recipient@example.com"],
+        "subject": "Hello from Python!",
+        "text": "This is a batch email.",
+    }
+])
+```
+
+Both sync and async sending clients support `ping()`:
+
+```python
+email.ping()
+await AsyncLettermint.email("your-sending-token").ping()
+```
+
+## Team API
+
+Use a team API token with `Lettermint.api(...)`. API tokens authenticate with `Authorization: Bearer ...` and are separate from project sending tokens.
+
+```python
+from lettermint import Lettermint
+
+api = Lettermint.api("your-api-token")
+
+domains = api.domains.list({"page[size]": "10"})
+team = api.team.retrieve()
+message_html = api.messages.html("message-id")
+pong = api.ping()
+```
+
+The async Team API client is available through `AsyncLettermint.api(...)`:
+
+```python
+from lettermint import AsyncLettermint
+
+api = AsyncLettermint.api("your-api-token")
+
+domains = await api.domains.list({"page[size]": "10"})
+message_html = await api.messages.html("message-id")
+```
+
+Endpoint groups are available as `domains`, `messages`, `projects`, `routes`, `stats`, `suppressions`, `team`, and `webhooks`.
+
 ## Webhook Verification
 
 Verify webhook signatures to ensure authenticity:
@@ -201,7 +259,7 @@ from lettermint.exceptions import (
     TimeoutError,
 )
 
-client = Lettermint(api_token="your-api-token")
+client = Lettermint(api_token="your-sending-token")
 
 try:
     response = client.email.from_("sender@example.com").to("recipient@example.com").subject(
@@ -251,7 +309,7 @@ except WebhookVerificationError as e:
 
 ```python
 client = Lettermint(
-    api_token="your-api-token",
+    api_token="your-sending-token",
     base_url="https://custom.api.com/v1",
 )
 ```
@@ -260,7 +318,7 @@ client = Lettermint(
 
 ```python
 client = Lettermint(
-    api_token="your-api-token",
+    api_token="your-sending-token",
     timeout=60.0,  # 60 seconds
 )
 ```
@@ -271,11 +329,11 @@ Both sync and async clients support context managers for proper resource cleanup
 
 ```python
 # Sync
-with Lettermint(api_token="your-api-token") as client:
+with Lettermint(api_token="your-sending-token") as client:
     client.email.from_("sender@example.com").to("recipient@example.com").send()
 
 # Async
-async with AsyncLettermint(api_token="your-api-token") as client:
+async with AsyncLettermint(api_token="your-sending-token") as client:
     await client.email.from_("sender@example.com").to("recipient@example.com").send()
 ```
 
