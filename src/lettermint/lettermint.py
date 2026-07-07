@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -30,6 +30,9 @@ from .endpoints.api import (
     WebhooksEndpoint,
 )
 from .endpoints.email import AsyncEmailEndpoint, EmailEndpoint
+
+if TYPE_CHECKING:
+    from . import types as lm_types
 
 
 class _EmailAccessor:
@@ -87,6 +90,9 @@ class ApiClient:
     def ping(self) -> str:
         return self._client.get_raw("/ping").strip()
 
+    def blocked_file_types(self) -> lm_types.BlockedFileTypesResponse:
+        return self._client.get("/blocked-file-types")
+
 
 class AsyncApiClient:
     """Asynchronous client for the full Lettermint API."""
@@ -124,6 +130,9 @@ class AsyncApiClient:
 
     async def ping(self) -> str:
         return (await self._client.get_raw("/ping")).strip()
+
+    async def blocked_file_types(self) -> lm_types.BlockedFileTypesResponse:
+        return await self._client.get("/blocked-file-types")
 
 
 class Lettermint:
