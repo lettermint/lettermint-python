@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+from typing import get_args
 
 import pytest
 import respx
 from httpx import Response
 
 from lettermint import AsyncLettermint, Lettermint
+from lettermint import types as lm_types
 
 
 class TestV2Entrypoints:
@@ -34,6 +36,26 @@ class TestV2Entrypoints:
         with Lettermint.api("api-token") as api:
             assert api.ping() == "pong"
 
+        request = route.calls.last.request
+        assert request.headers["authorization"] == "Bearer api-token"
+        assert "x-lettermint-token" not in request.headers
+
+    @respx.mock
+    def test_api_blocked_file_types_uses_bearer_auth(self) -> None:
+        route = respx.get("https://api.lettermint.co/v1/blocked-file-types").mock(
+            return_value=Response(
+                200,
+                json={
+                    "extensions": ["exe"],
+                    "mime_types": ["application/x-msdownload"],
+                },
+            )
+        )
+
+        with Lettermint.api("api-token") as api:
+            response = api.blocked_file_types()
+
+        assert response["extensions"] == ["exe"]
         request = route.calls.last.request
         assert request.headers["authorization"] == "Bearer api-token"
         assert "x-lettermint-token" not in request.headers
@@ -70,6 +92,7 @@ class TestV2Entrypoints:
         assert hasattr(api, "suppressions")
         assert hasattr(api, "team")
         assert hasattr(api, "webhooks")
+        assert hasattr(api, "blocked_file_types")
 
 
 class TestSendingEndpoint:
@@ -148,6 +171,7 @@ class TestFullApiEndpoints:
             (Lettermint.email("token"), "send_batch"),
             (Lettermint.email("token"), "ping"),
             (Lettermint.api("token"), "ping"),
+            (Lettermint.api("token"), "blocked_file_types"),
             (Lettermint.api("token").domains, "list"),
             (Lettermint.api("token").domains, "create"),
             (Lettermint.api("token").domains, "retrieve"),
@@ -198,3 +222,21 @@ class TestFullApiEndpoints:
         missing = [method for endpoint, method in operations if not hasattr(endpoint, method)]
 
         assert missing == []
+
+    def test_generated_types_match_current_team_schema(self) -> None:
+        assert "auto_replied" in get_args(lm_types.MessageEventType)
+        assert "message.auto_replied" in get_args(lm_types.WebhookEvent)
+        assert 300000 in get_args(lm_types.VolumeTier)
+        assert "global" in get_args(lm_types.SuppressionScope)
+
+        assert "short_token" in lm_types.StoreProjectData.__annotations__
+        assert "redact_email_content" in lm_types.ProjectData.__annotations__
+        assert "redact_email_content" in lm_types.UpdateProjectData.__annotations__
+        assert hasattr(lm_types, "UpdateRouteSettingsData")
+        assert hasattr(lm_types, "UpdateRouteInboundSettingsData")
+        assert hasattr(lm_types, "BlockedFileTypesResponse")
+        assert "extensions" in lm_types.BlockedFileTypesResponse.__annotations__
+        assert "mime_types" in lm_types.BlockedFileTypesResponse.__annotations__
+        assert "redact_email_content" in lm_types.UpdateRouteSettingsData.__annotations__
+        assert "disable_plaintext_generation" in lm_types.UpdateRouteSettingsData.__annotations__
+        assert "inbound_spam_threshold" in lm_types.UpdateRouteInboundSettingsData.__annotations__
