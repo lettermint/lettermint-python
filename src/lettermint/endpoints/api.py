@@ -138,44 +138,6 @@ class ProjectsEndpoint(Endpoint):
             ),
         )
 
-    def update_members(
-        self, project_id: str, data: lm_types.ProjectUpdateMembersRequest
-    ) -> lm_types.ProjectUpdateMembersResponse:
-        return cast(
-            lm_types.ProjectUpdateMembersResponse,
-            self._client.put(
-                self._path("/projects/{projectId}/members", projectId=project_id),
-                data=data,
-            ),
-        )
-
-    def add_member(self, project_id: str, team_member_id: str) -> lm_types.ProjectAddMemberResponse:
-        return cast(
-            lm_types.ProjectAddMemberResponse,
-            self._client.post(
-                self._path(
-                    "/projects/{projectId}/members/{teamMemberId}",
-                    projectId=project_id,
-                    teamMemberId=team_member_id,
-                ),
-                data={},
-            ),
-        )
-
-    def remove_member(
-        self, project_id: str, team_member_id: str
-    ) -> lm_types.ProjectRemoveMemberResponse:
-        return cast(
-            lm_types.ProjectRemoveMemberResponse,
-            self._client.delete(
-                self._path(
-                    "/projects/{projectId}/members/{teamMemberId}",
-                    projectId=project_id,
-                    teamMemberId=team_member_id,
-                )
-            ),
-        )
-
     def routes(self, project_id: str, query: Query | None = None) -> lm_types.RouteIndexResponse:
         return cast(
             lm_types.RouteIndexResponse,
@@ -263,8 +225,28 @@ class TeamEndpoint(Endpoint):
     def usage(self) -> lm_types.TeamUsageResponse:
         return cast(lm_types.TeamUsageResponse, self._client.get("/team/usage"))
 
+    def roles(self) -> lm_types.TeamRolesResponse:
+        return cast(lm_types.TeamRolesResponse, self._client.get("/team/roles"))
+
     def members(self, query: Query | None = None) -> lm_types.TeamMembersResponse:
         return cast(lm_types.TeamMembersResponse, self._client.get("/team/members", params=query))
+
+    def member(self, user_id: str) -> lm_types.TeamMembersShowResponse:
+        return cast(
+            lm_types.TeamMembersShowResponse,
+            self._client.get(self._path("/team/members/{userId}", userId=user_id)),
+        )
+
+    def update_member_assignment(
+        self, user_id: str, data: lm_types.TeamMembersAssignmentUpdateRequest
+    ) -> lm_types.TeamMembersAssignmentUpdateResponse:
+        return cast(
+            lm_types.TeamMembersAssignmentUpdateResponse,
+            self._client.put(
+                self._path("/team/members/{userId}/assignment", userId=user_id),
+                data=data,
+            ),
+        )
 
 
 class WebhooksEndpoint(Endpoint):
@@ -481,45 +463,6 @@ class AsyncProjectsEndpoint(AsyncEndpoint):
             ),
         )
 
-    async def update_members(
-        self, project_id: str, data: lm_types.ProjectUpdateMembersRequest
-    ) -> lm_types.ProjectUpdateMembersResponse:
-        return cast(
-            lm_types.ProjectUpdateMembersResponse,
-            await self._client.put(
-                self._path("/projects/{projectId}/members", projectId=project_id), data=data
-            ),
-        )
-
-    async def add_member(
-        self, project_id: str, team_member_id: str
-    ) -> lm_types.ProjectAddMemberResponse:
-        return cast(
-            lm_types.ProjectAddMemberResponse,
-            await self._client.post(
-                self._path(
-                    "/projects/{projectId}/members/{teamMemberId}",
-                    projectId=project_id,
-                    teamMemberId=team_member_id,
-                ),
-                data={},
-            ),
-        )
-
-    async def remove_member(
-        self, project_id: str, team_member_id: str
-    ) -> lm_types.ProjectRemoveMemberResponse:
-        return cast(
-            lm_types.ProjectRemoveMemberResponse,
-            await self._client.delete(
-                self._path(
-                    "/projects/{projectId}/members/{teamMemberId}",
-                    projectId=project_id,
-                    teamMemberId=team_member_id,
-                )
-            ),
-        )
-
     async def routes(
         self, project_id: str, query: Query | None = None
     ) -> lm_types.RouteIndexResponse:
@@ -612,9 +555,29 @@ class AsyncTeamEndpoint(AsyncEndpoint):
     async def usage(self) -> lm_types.TeamUsageResponse:
         return cast(lm_types.TeamUsageResponse, await self._client.get("/team/usage"))
 
+    async def roles(self) -> lm_types.TeamRolesResponse:
+        return cast(lm_types.TeamRolesResponse, await self._client.get("/team/roles"))
+
     async def members(self, query: Query | None = None) -> lm_types.TeamMembersResponse:
         return cast(
             lm_types.TeamMembersResponse, await self._client.get("/team/members", params=query)
+        )
+
+    async def member(self, user_id: str) -> lm_types.TeamMembersShowResponse:
+        return cast(
+            lm_types.TeamMembersShowResponse,
+            await self._client.get(self._path("/team/members/{userId}", userId=user_id)),
+        )
+
+    async def update_member_assignment(
+        self, user_id: str, data: lm_types.TeamMembersAssignmentUpdateRequest
+    ) -> lm_types.TeamMembersAssignmentUpdateResponse:
+        return cast(
+            lm_types.TeamMembersAssignmentUpdateResponse,
+            await self._client.put(
+                self._path("/team/members/{userId}/assignment", userId=user_id),
+                data=data,
+            ),
         )
 
 

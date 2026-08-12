@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict, Union
+from typing import Any, Literal, TypedDict
 
 from typing_extensions import NotRequired, Required, TypeAlias
 
@@ -22,29 +22,49 @@ MessageStatus: TypeAlias = Literal[
     "policy_rejected",
     "unsubscribed",
 ]
+TlsPolicy: TypeAlias = Literal["opportunistic", "enforced"]
 SendMailRequest = TypedDict(
     "SendMailRequest",
     {
         "route": "NotRequired[str]",
         "from": "Required[str]",
-        "subject": "Required[str]",
-        "tag": "NotRequired[str | None]",
-        "html": "NotRequired[str | None]",
-        "text": "NotRequired[str | None]",
         "to": "Required[list[str]]",
         "cc": "NotRequired[list[str]]",
         "bcc": "NotRequired[list[str]]",
         "reply_to": "NotRequired[list[str]]",
+        "subject": "Required[str]",
         "headers": "NotRequired[dict[str, str]]",
         "metadata": "NotRequired[dict[str, str]]",
+        "tag": "NotRequired[str | None]",
         "settings": "NotRequired[dict[str, Any] | None]",
+        "html": "NotRequired[str | None]",
+        "text": "NotRequired[str | None]",
         "attachments": "NotRequired[list[dict[str, Any]]]",
     },
 )
 
 SendBatchMailRequest: TypeAlias = list[dict[str, Any]]
 AttachmentDelivery: TypeAlias = Literal["inline", "url"]
+BuiltInTeamRole: TypeAlias = Literal["owner", "admin", "member"]
+CursorPaginator = TypedDict(
+    "CursorPaginator",
+    {
+        "data": "Required[list[str]]",
+        "path": "Required[str | None]",
+        "per_page": "Required[int]",
+        "next_cursor": "Required[str | None]",
+        "next_page_url": "Required[str | None]",
+        "prev_cursor": "Required[str | None]",
+        "prev_page_url": "Required[str | None]",
+    },
+)
+
+DkimMode: TypeAlias = Literal["legacy_txt", "managed_cname"]
+DnsRecordPurpose: TypeAlias = Literal[
+    "return_path", "dmarc", "dkim_legacy", "dkim_primary", "dkim_secondary"
+]
 DnsRecordStatus: TypeAlias = Literal["active", "failed", "pending"]
+DnsVerificationScope: TypeAlias = Literal["required", "recommended", "migration", "deprecated"]
 RecordType: TypeAlias = Literal["TXT", "CNAME", "MX"]
 DomainDnsRecordData = TypedDict(
     "DomainDnsRecordData",
@@ -55,6 +75,9 @@ DomainDnsRecordData = TypedDict(
         "fqdn": "Required[str]",
         "content": "Required[str]",
         "status": "Required[DnsRecordStatus]",
+        "purpose": "Required[DnsRecordPurpose]",
+        "verification_scope": "Required[DnsVerificationScope]",
+        "required_for_verification": "Required[bool]",
         "verified_at": "Required[str | None]",
         "last_checked_at": "Required[str | None]",
     },
@@ -65,6 +88,8 @@ DomainData = TypedDict(
     {
         "id": "Required[str]",
         "domain": "Required[str]",
+        "dkim_mode": "Required[DkimMode]",
+        "rotation_ready": "Required[bool]",
         "status_changed_at": "Required[str | None]",
         "dns_records": "NotRequired[list[DomainDnsRecordData]]",
         "projects": "NotRequired[list[dict[str, Any]]]",
@@ -81,6 +106,7 @@ DomainListData = TypedDict(
         "id": "Required[str]",
         "domain": "Required[str]",
         "status": "Required[DomainStatus]",
+        "dkim_mode": "Required[DkimMode]",
         "status_changed_at": "Required[str | None]",
         "created_at": "Required[str]",
     },
@@ -177,6 +203,7 @@ MessageListData = TypedDict(
         "id": "Required[str]",
         "type": "Required[MessageType]",
         "status": "Required[MessageStatus]",
+        "spam_score": "NotRequired[float | None]",
         "from_email": "Required[str]",
         "from_name": "Required[str | None]",
         "subject": "Required[str | None]",
@@ -185,6 +212,7 @@ MessageListData = TypedDict(
         "bcc": "Required[list[MessageRecipientData] | None]",
         "reply_to": "Required[list[str] | None]",
         "tag": "Required[str | None]",
+        "status_changed_at": "Required[str | None]",
         "created_at": "Required[str]",
     },
 )
@@ -200,26 +228,8 @@ MessageStatsData = TypedDict(
 )
 
 Plan: TypeAlias = Literal["free", "starter", "growth", "pro"]
-UserData = TypedDict(
-    "UserData",
-    {
-        "id": "Required[str]",
-        "name": "Required[str]",
-        "email": "Required[str]",
-        "avatar": "Required[str | None]",
-    },
-)
-
-TeamMemberData = TypedDict(
-    "TeamMemberData",
-    {
-        "id": "Required[str]",
-        "user": "NotRequired[UserData]",
-        "role": "Required[str | None]",
-        "joined_at": "Required[str | None]",
-    },
-)
-
+ProjectAccessScope: TypeAlias = Literal["all", "selected"]
+RouteType: TypeAlias = Literal["transactional", "broadcast", "inbound"]
 RouteStatisticData = TypedDict(
     "RouteStatisticData",
     {
@@ -231,13 +241,15 @@ RouteStatisticData = TypedDict(
         "hard_bounce_count": "Required[int]",
         "spam_complaint_count": "Required[int]",
         "inbound_received_count": "Required[int]",
+        "observed_opened_count": "NotRequired[int | None]",
+        "human_opened_count": "NotRequired[int | None]",
+        "privacy_opened_count": "NotRequired[int | None]",
         "effective_opened_count": "Required[int | None]",
         "machine_opened_count": "Required[int | None]",
         "machine_clicked_count": "Required[int | None]",
     },
 )
 
-RouteType: TypeAlias = Literal["transactional", "broadcast", "inbound"]
 RouteData = TypedDict(
     "RouteData",
     {
@@ -247,15 +259,16 @@ RouteData = TypedDict(
         "name": "Required[str]",
         "route_type": "Required[RouteType]",
         "is_default": "Required[bool]",
-        "inbound_address": "NotRequired[str]",
-        "inbound_domain": "NotRequired[str]",
-        "inbound_domain_verified_at": "NotRequired[str]",
-        "inbound_spam_threshold": "NotRequired[float]",
+        "inbound_address": "NotRequired[str | None]",
+        "inbound_domain": "NotRequired[str | None]",
+        "inbound_domain_verified_at": "NotRequired[str | None]",
+        "inbound_spam_threshold": "NotRequired[float | None]",
         "attachment_delivery": "NotRequired[AttachmentDelivery]",
+        "settings": "NotRequired[dict[str, Any] | None]",
         "project": "NotRequired[ProjectData]",
         "webhooks_count": "NotRequired[int]",
         "suppressed_recipients_count": "NotRequired[int]",
-        "statistics": "NotRequired[dict[str, Any] | list[RouteStatisticData]]",
+        "statistics": "NotRequired[list[RouteStatisticData]]",
         "created_at": "Required[str]",
         "updated_at": "Required[str]",
     },
@@ -276,9 +289,7 @@ ProjectData = TypedDict(
         "routes_count": "NotRequired[int]",
         "domains": "NotRequired[list[DomainData]]",
         "domains_count": "NotRequired[int]",
-        "team_members": "NotRequired[list[TeamMemberData]]",
-        "team_members_count": "NotRequired[int]",
-        "last_28_days": "NotRequired[MessageStatsData | Any]",
+        "last_28_days": "NotRequired[MessageStatsData | None]",
         "created_at": "Required[str]",
         "updated_at": "Required[str]",
     },
@@ -292,13 +303,61 @@ ProjectListData = TypedDict(
         "smtp_enabled": "Required[bool]",
         "routes_count": "Required[int]",
         "domains_count": "Required[int]",
-        "team_members_count": "Required[int]",
         "last_28_days": "Required[MessageStatsData]",
         "created_at": "Required[str]",
         "updated_at": "Required[str]",
     },
 )
 
+RbacConflictCode: TypeAlias = Literal[
+    "stale_resource",
+    "owner_protected",
+    "last_owner",
+    "built_in_role_immutable",
+    "custom_role_requires_pro",
+]
+RbacPermission: TypeAlias = Literal[
+    "team:manage",
+    "billing:manage",
+    "security:manage",
+    "audit:read",
+    "support:manage",
+    "members:read",
+    "members:manage",
+    "roles:manage",
+    "team_tokens:read",
+    "team_tokens:manage",
+    "team_tokens:rotate",
+    "team_tokens:revoke",
+    "projects:create",
+    "team_suppressions:read",
+    "team_suppressions:add",
+    "team_suppressions:remove",
+    "projects:read",
+    "projects:manage",
+    "projects:delete",
+    "routes:read",
+    "routes:manage",
+    "routes:delete",
+    "domains:read",
+    "domains:manage",
+    "domains:delete",
+    "project_tokens:read",
+    "project_tokens:manage",
+    "project_tokens:rotate",
+    "project_tokens:revoke",
+    "webhooks:read",
+    "webhooks:manage",
+    "webhooks:delete",
+    "webhooks:rotate_secret",
+    "stats:read",
+    "messages:read",
+    "messages:read_content",
+    "messages:send",
+    "suppressions:read",
+    "suppressions:add",
+    "suppressions:remove",
+]
 RouteListData = TypedDict(
     "RouteListData",
     {
@@ -341,8 +400,11 @@ StatsDailyData = TypedDict(
         "opened": "Required[int | None]",
         "clicked": "Required[int | None]",
         "inbound": "Required[StatsInboundData]",
-        "transactional": "Required[StatsTypeData | Any]",
-        "broadcast": "Required[StatsTypeData | Any]",
+        "transactional": "Required[StatsTypeData | None]",
+        "broadcast": "Required[StatsTypeData | None]",
+        "observed_opened": "NotRequired[int | None]",
+        "human_opened": "NotRequired[int | None]",
+        "privacy_opened": "NotRequired[int | None]",
         "effective_opened": "Required[int | None]",
         "machine_opened": "Required[int | None]",
         "machine_clicked": "Required[int | None]",
@@ -359,8 +421,11 @@ StatsTotalsData = TypedDict(
         "opened": "Required[int | None]",
         "clicked": "Required[int | None]",
         "inbound": "Required[StatsInboundData]",
-        "transactional": "Required[StatsTypeData | Any]",
-        "broadcast": "Required[StatsTypeData | Any]",
+        "transactional": "Required[StatsTypeData | None]",
+        "broadcast": "Required[StatsTypeData | None]",
+        "observed_opened": "NotRequired[int | None]",
+        "human_opened": "NotRequired[int | None]",
+        "privacy_opened": "NotRequired[int | None]",
         "effective_opened": "Required[int | None]",
         "machine_opened": "Required[int | None]",
         "machine_clicked": "Required[int | None]",
@@ -419,11 +484,11 @@ StoreSuppressionData = TypedDict(
     "StoreSuppressionData",
     {
         "email": "NotRequired[str | None]",
+        "emails": "NotRequired[list[str] | None]",
         "reason": "Required[SuppressionReason]",
         "scope": "Required[SuppressionScope]",
         "route_id": "NotRequired[str | None]",
         "project_id": "NotRequired[str | None]",
-        "emails": "NotRequired[list[str] | None]",
     },
 )
 
@@ -442,6 +507,8 @@ WebhookEvent: TypeAlias = Literal[
     "message.clicked",
     "message.inbound",
     "message.policy_rejected",
+    "suppression.added",
+    "suppression.removed",
     "webhook.test",
 ]
 StoreWebhookData = TypedDict(
@@ -450,13 +517,23 @@ StoreWebhookData = TypedDict(
         "route_id": "Required[str]",
         "name": "Required[str]",
         "url": "Required[str]",
+        "events": "Required[list[WebhookEvent]]",
         "enabled": "NotRequired[bool | None]",
         "include_machine_events": "NotRequired[bool | None]",
-        "events": "Required[list[WebhookEvent]]",
     },
 )
 
 SuppressionType: TypeAlias = Literal["email", "domain", "extension"]
+SuppressionSourceMessageData = TypedDict(
+    "SuppressionSourceMessageData",
+    {
+        "id": "Required[str]",
+        "available": "Required[bool]",
+        "subject": "Required[str | None]",
+        "created_at": "Required[str | None]",
+    },
+)
+
 SuppressedRecipientData = TypedDict(
     "SuppressedRecipientData",
     {
@@ -467,6 +544,7 @@ SuppressedRecipientData = TypedDict(
         "scope": "Required[SuppressionScope]",
         "project_id": "Required[str | None]",
         "route_id": "Required[str | None]",
+        "source_message": "NotRequired[SuppressionSourceMessageData | None]",
         "created_at": "Required[str]",
         "updated_at": "Required[str]",
     },
@@ -481,7 +559,6 @@ TeamAddonData = TypedDict(
 )
 
 TeamType: TypeAlias = Literal["personal", "business"]
-VolumeTier: TypeAlias = Literal[300, 10000, 50000, 125000, 300000, 500000, 750000, 1000000, 1500000]
 TeamData = TypedDict(
     "TeamData",
     {
@@ -489,7 +566,8 @@ TeamData = TypedDict(
         "name": "Required[str]",
         "type": "Required[TeamType]",
         "plan": "Required[Plan]",
-        "tier": "Required[VolumeTier]",
+        "included_volume": "Required[int]",
+        "tier": "Required[int]",
         "verified_at": "Required[str | None]",
         "features": "NotRequired[list[str]]",
         "addons": "NotRequired[list[TeamAddonData]]",
@@ -497,6 +575,37 @@ TeamData = TypedDict(
         "domains_count": "NotRequired[int]",
         "projects_count": "NotRequired[int]",
         "members_count": "NotRequired[int]",
+    },
+)
+
+TeamMemberProjectAccessData = TypedDict(
+    "TeamMemberProjectAccessData",
+    {
+        "scope": "Required[ProjectAccessScope]",
+        "projects": "Required[list[dict[str, Any]]]",
+    },
+)
+
+TeamMemberData = TypedDict(
+    "TeamMemberData",
+    {
+        "id": "Required[str]",
+        "name": "Required[str]",
+        "email": "Required[str]",
+        "role": "Required[dict[str, Any]]",
+        "project_access": "Required[TeamMemberProjectAccessData]",
+        "joined_at": "Required[str | None]",
+    },
+)
+
+TeamRoleData = TypedDict(
+    "TeamRoleData",
+    {
+        "id": "Required[str]",
+        "name": "Required[str]",
+        "system_key": "Required[BuiltInTeamRole | None]",
+        "permissions": "Required[list[RbacPermission]]",
+        "assignable": "Required[bool]",
     },
 )
 
@@ -535,10 +644,16 @@ UpdateProjectData = TypedDict(
     },
 )
 
-UpdateProjectMembersData = TypedDict(
-    "UpdateProjectMembersData",
+UpdateRouteSettingsData = TypedDict(
+    "UpdateRouteSettingsData",
     {
-        "team_member_ids": "Required[list[str]]",
+        "track_opens": "NotRequired[bool | None]",
+        "track_clicks": "NotRequired[bool | None]",
+        "generate_plaintext_fallback": "NotRequired[bool | None]",
+        "suppress_auto_responders": "NotRequired[bool | None]",
+        "tls": "NotRequired[TlsPolicy | None]",
+        "disable_hosted_unsubscribe": "NotRequired[bool | None]",
+        "redact_email_content": "NotRequired[bool | None]",
     },
 )
 
@@ -547,18 +662,7 @@ UpdateRouteInboundSettingsData = TypedDict(
     {
         "inbound_domain": "NotRequired[str | None]",
         "inbound_spam_threshold": "NotRequired[float | None]",
-        "attachment_delivery": "NotRequired[AttachmentDelivery | Any]",
-    },
-)
-
-UpdateRouteSettingsData = TypedDict(
-    "UpdateRouteSettingsData",
-    {
-        "track_opens": "NotRequired[bool | None]",
-        "track_clicks": "NotRequired[bool | None]",
-        "disable_plaintext_generation": "NotRequired[bool | None]",
-        "disable_hosted_unsubscribe": "NotRequired[bool | None]",
-        "redact_email_content": "NotRequired[bool | None]",
+        "attachment_delivery": "NotRequired[AttachmentDelivery | None]",
     },
 )
 
@@ -566,8 +670,8 @@ UpdateRouteData = TypedDict(
     "UpdateRouteData",
     {
         "name": "NotRequired[str | None]",
-        "settings": "NotRequired[UpdateRouteSettingsData | Any]",
-        "inbound_settings": "NotRequired[UpdateRouteInboundSettingsData | Any]",
+        "settings": "NotRequired[UpdateRouteSettingsData | None]",
+        "inbound_settings": "NotRequired[UpdateRouteInboundSettingsData | None]",
     },
 )
 
@@ -578,14 +682,22 @@ UpdateTeamData = TypedDict(
     },
 )
 
+UpdateTeamMemberAssignmentData = TypedDict(
+    "UpdateTeamMemberAssignmentData",
+    {
+        "role_id": "Required[str]",
+        "project_access": "Required[dict[str, Any]]",
+    },
+)
+
 UpdateWebhookData = TypedDict(
     "UpdateWebhookData",
     {
         "name": "NotRequired[str]",
         "url": "NotRequired[str]",
+        "events": "NotRequired[list[WebhookEvent]]",
         "enabled": "NotRequired[bool]",
         "include_machine_events": "NotRequired[bool]",
-        "events": "NotRequired[list[WebhookEvent]]",
     },
 )
 
@@ -706,6 +818,7 @@ DomainVerifyDnsRecordsResponse = TypedDict(
     "DomainVerifyDnsRecordsResponse",
     {
         "message": "Required[str]",
+        "recommended_failed_records": "Required[list[dict[str, Any]]]",
     },
 )
 
@@ -733,7 +846,15 @@ BlockedFileTypesResponse = TypedDict(
     },
 )
 
-MessageIndexResponse: TypeAlias = Union[dict[str, Any], list[MessageListData]]
+MessageIndexResponse = TypedDict(
+    "MessageIndexResponse",
+    {
+        "data": "Required[list[MessageListData]]",
+        "links": "Required[list[str]]",
+        "meta": "Required[dict[str, Any]]",
+    },
+)
+
 MessageShowResponse: TypeAlias = MessageData
 MessageEventsResponse = TypedDict(
     "MessageEventsResponse",
@@ -793,30 +914,7 @@ ProjectRotateTokenResponse = TypedDict(
     {
         "data": "Required[ProjectData]",
         "new_token": "Required[str]",
-        "message": "Required[Literal['Project API token rotated successfully. Please update your integrations.']]",
-    },
-)
-
-ProjectUpdateMembersRequest: TypeAlias = UpdateProjectMembersData
-ProjectUpdateMembersResponse = TypedDict(
-    "ProjectUpdateMembersResponse",
-    {
-        "data": "Required[ProjectData]",
-        "message": "Required[Literal['Project members updated successfully.']]",
-    },
-)
-
-ProjectAddMemberResponse = TypedDict(
-    "ProjectAddMemberResponse",
-    {
-        "message": "Required[Literal['Team member added to project successfully.']]",
-    },
-)
-
-ProjectRemoveMemberResponse = TypedDict(
-    "ProjectRemoveMemberResponse",
-    {
-        "message": "Required[Literal['Team member removed from project successfully.']]",
+        "message": "Required[Literal['API token rotated successfully. Please update your integrations.']]",
     },
 )
 
@@ -892,7 +990,10 @@ SuppressionStoreResponse = TypedDict(
 SuppressionDestroyResponse = TypedDict(
     "SuppressionDestroyResponse",
     {
-        "message": "Required[Literal['Email removed from suppression list successfully.']]",
+        "success": "Required[bool]",
+        "status": "Required[Literal['removed']]",
+        "message": "Required[str]",
+        "confidence": "NotRequired[float]",
     },
 )
 
@@ -907,6 +1008,13 @@ TeamUpdateResponse = TypedDict(
 )
 
 TeamUsageResponse: TypeAlias = TeamUsageDetailData
+TeamRolesResponse = TypedDict(
+    "TeamRolesResponse",
+    {
+        "data": "Required[list[TeamRoleData]]",
+    },
+)
+
 TeamMembersResponse = TypedDict(
     "TeamMembersResponse",
     {
@@ -920,6 +1028,9 @@ TeamMembersResponse = TypedDict(
     },
 )
 
+TeamMembersShowResponse: TypeAlias = TeamMemberData
+TeamMembersAssignmentUpdateRequest: TypeAlias = UpdateTeamMemberAssignmentData
+TeamMembersAssignmentUpdateResponse: TypeAlias = TeamMemberData
 WebhookIndexResponse = TypedDict(
     "WebhookIndexResponse",
     {
