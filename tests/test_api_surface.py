@@ -106,7 +106,7 @@ class TestSendingEndpoint:
         )
 
         with Lettermint.email("sending-token") as email:
-            response = email.send_batch(
+            response = email.idempotency_key("batch-key").send_batch(
                 [
                     {
                         "from": "sender@example.com",
@@ -118,6 +118,7 @@ class TestSendingEndpoint:
 
         assert response[0]["message_id"] == "msg_123"
         assert json.loads(route.calls.last.request.content)[0]["subject"] == "Hello"
+        assert route.calls.last.request.headers["Idempotency-Key"] == "batch-key"
 
 
 class TestFullApiEndpoints:

@@ -12,7 +12,7 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
-from ..types import SendBatchEmailResponse, SendEmailResponse
+from ..types import SendBatchEmailResponse, SendBatchMailRequest, SendEmailResponse, TlsPolicy
 from .endpoint import AsyncEndpoint, Endpoint
 
 if TYPE_CHECKING:
@@ -207,6 +207,7 @@ class EmailEndpoint(Endpoint):
         filename: str,
         content: str,
         content_id: str | None = None,
+        content_type: str | None = None,
     ) -> Self:
         """Attach a file to the email.
 
@@ -214,6 +215,7 @@ class EmailEndpoint(Endpoint):
             filename: The attachment filename.
             content: The base64-encoded file content.
             content_id: Optional Content-ID for inline attachments.
+            content_type: Optional MIME type for the attachment.
 
         Returns:
             The current instance for method chaining.
@@ -233,8 +235,15 @@ class EmailEndpoint(Endpoint):
         }
         if content_id is not None:
             attachment["content_id"] = content_id
+        if content_type is not None:
+            attachment["content_type"] = content_type
 
         self._payload["attachments"].append(attachment)
+        return self
+
+    def settings(self, settings: dict[str, bool | TlsPolicy]) -> Self:
+        """Set per-email settings that override the selected route."""
+        self._payload["settings"] = settings
         return self
 
     def metadata(self, metadata: dict[str, str]) -> Self:
@@ -297,10 +306,21 @@ class EmailEndpoint(Endpoint):
         finally:
             self._reset()
 
-    def send_batch(self, payload: list[dict[str, Any]]) -> SendBatchEmailResponse:
+    def send_batch(self, payload: SendBatchMailRequest) -> SendBatchEmailResponse:
         """Send multiple emails in one batch."""
-        response: SendBatchEmailResponse = self._client.post("/send/batch", data=payload)
-        return response
+        headers: dict[str, str] | None = None
+        if self._idempotency_key is not None:
+            headers = {"Idempotency-Key": self._idempotency_key}
+
+        try:
+            response: SendBatchEmailResponse = self._client.post(
+                "/send/batch",
+                data=payload,
+                headers=headers,
+            )
+            return response
+        finally:
+            self._reset()
 
     def ping(self) -> str:
         """Ping the Sending API."""
@@ -478,6 +498,7 @@ class AsyncEmailEndpoint(AsyncEndpoint):
         filename: str,
         content: str,
         content_id: str | None = None,
+        content_type: str | None = None,
     ) -> Self:
         """Attach a file to the email.
 
@@ -485,6 +506,7 @@ class AsyncEmailEndpoint(AsyncEndpoint):
             filename: The attachment filename.
             content: The base64-encoded file content.
             content_id: Optional Content-ID for inline attachments.
+            content_type: Optional MIME type for the attachment.
 
         Returns:
             The current instance for method chaining.
@@ -498,8 +520,15 @@ class AsyncEmailEndpoint(AsyncEndpoint):
         }
         if content_id is not None:
             attachment["content_id"] = content_id
+        if content_type is not None:
+            attachment["content_type"] = content_type
 
         self._payload["attachments"].append(attachment)
+        return self
+
+    def settings(self, settings: dict[str, bool | TlsPolicy]) -> Self:
+        """Set per-email settings that override the selected route."""
+        self._payload["settings"] = settings
         return self
 
     def metadata(self, metadata: dict[str, str]) -> Self:
@@ -554,9 +583,18 @@ class AsyncEmailEndpoint(AsyncEndpoint):
 
         return _send()
 
-    async def send_batch(self, payload: list[dict[str, Any]]) -> SendBatchEmailResponse:
+    async def send_batch(self, payload: SendBatchMailRequest) -> SendBatchEmailResponse:
         """Send multiple emails in one batch asynchronously."""
-        response: SendBatchEmailResponse = await self._client.post("/send/batch", data=payload)
+        headers: dict[str, str] | None = None
+        if self._idempotency_key is not None:
+            headers = {"Idempotency-Key": self._idempotency_key}
+        self._reset()
+
+        response: SendBatchEmailResponse = await self._client.post(
+            "/send/batch",
+            data=payload,
+            headers=headers,
+        )
         return response
 
     async def ping(self) -> str:

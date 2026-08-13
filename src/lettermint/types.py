@@ -43,7 +43,7 @@ SendMailRequest = TypedDict(
     },
 )
 
-SendBatchMailRequest: TypeAlias = list[dict[str, Any]]
+SendBatchMailRequest: TypeAlias = list[SendMailRequest]
 AttachmentDelivery: TypeAlias = Literal["inline", "url"]
 BuiltInTeamRole: TypeAlias = Literal["owner", "admin", "member"]
 CursorPaginator = TypedDict(
