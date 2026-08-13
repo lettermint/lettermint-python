@@ -93,6 +93,9 @@ class TestV2Entrypoints:
         assert hasattr(api, "team")
         assert hasattr(api, "webhooks")
         assert hasattr(api, "blocked_file_types")
+        assert hasattr(api.team, "roles")
+        assert hasattr(api.team, "member")
+        assert hasattr(api.team, "update_member_assignment")
 
 
 class TestSendingEndpoint:
@@ -103,7 +106,7 @@ class TestSendingEndpoint:
         )
 
         with Lettermint.email("sending-token") as email:
-            response = email.send_batch(
+            response = email.idempotency_key("batch-key").send_batch(
                 [
                     {
                         "from": "sender@example.com",
@@ -115,6 +118,7 @@ class TestSendingEndpoint:
 
         assert response[0]["message_id"] == "msg_123"
         assert json.loads(route.calls.last.request.content)[0]["subject"] == "Hello"
+        assert route.calls.last.request.headers["Idempotency-Key"] == "batch-key"
 
 
 class TestFullApiEndpoints:
@@ -165,6 +169,31 @@ class TestFullApiEndpoints:
         assert html_route.called
         assert text_route.called
 
+    @respx.mock
+    def test_team_role_and_member_assignment_endpoints(self) -> None:
+        roles_route = respx.get("https://api.lettermint.co/v1/team/roles").mock(
+            return_value=Response(200, json={"data": []})
+        )
+        member_route = respx.get("https://api.lettermint.co/v1/team/members/user%2Fid").mock(
+            return_value=Response(200, json={"id": "user/id"})
+        )
+        assignment_route = respx.put(
+            "https://api.lettermint.co/v1/team/members/user%2Fid/assignment"
+        ).mock(return_value=Response(200, json={"id": "user/id"}))
+        assignment: lm_types.TeamMembersAssignmentUpdateRequest = {
+            "role_id": "role_123",
+            "project_access": {"scope": "all"},
+        }
+
+        with Lettermint.api("api-token") as api:
+            assert api.team.roles()["data"] == []
+            assert api.team.member("user/id")["id"] == "user/id"
+            assert api.team.update_member_assignment("user/id", assignment)["id"] == "user/id"
+
+        assert roles_route.called
+        assert member_route.called
+        assert json.loads(assignment_route.calls.last.request.content) == assignment
+
     def test_documented_operations_are_exposed(self) -> None:
         operations = [
             (Lettermint.email("token"), "send"),
@@ -191,9 +220,6 @@ class TestFullApiEndpoints:
             (Lettermint.api("token").projects, "update"),
             (Lettermint.api("token").projects, "delete"),
             (Lettermint.api("token").projects, "rotate_token"),
-            (Lettermint.api("token").projects, "update_members"),
-            (Lettermint.api("token").projects, "add_member"),
-            (Lettermint.api("token").projects, "remove_member"),
             (Lettermint.api("token").projects, "routes"),
             (Lettermint.api("token").projects, "create_route"),
             (Lettermint.api("token").routes, "retrieve"),
@@ -207,7 +233,10 @@ class TestFullApiEndpoints:
             (Lettermint.api("token").team, "retrieve"),
             (Lettermint.api("token").team, "update"),
             (Lettermint.api("token").team, "usage"),
+            (Lettermint.api("token").team, "roles"),
             (Lettermint.api("token").team, "members"),
+            (Lettermint.api("token").team, "member"),
+            (Lettermint.api("token").team, "update_member_assignment"),
             (Lettermint.api("token").webhooks, "list"),
             (Lettermint.api("token").webhooks, "create"),
             (Lettermint.api("token").webhooks, "retrieve"),
@@ -226,7 +255,9 @@ class TestFullApiEndpoints:
     def test_generated_types_match_current_team_schema(self) -> None:
         assert "auto_replied" in get_args(lm_types.MessageEventType)
         assert "message.auto_replied" in get_args(lm_types.WebhookEvent)
-        assert 300000 in get_args(lm_types.VolumeTier)
+        assert "admin" in get_args(lm_types.BuiltInTeamRole)
+        assert "members:manage" in get_args(lm_types.RbacPermission)
+        assert "enforced" in get_args(lm_types.TlsPolicy)
         assert "global" in get_args(lm_types.SuppressionScope)
 
         assert "short_token" in lm_types.StoreProjectData.__annotations__
@@ -238,5 +269,12 @@ class TestFullApiEndpoints:
         assert "extensions" in lm_types.BlockedFileTypesResponse.__annotations__
         assert "mime_types" in lm_types.BlockedFileTypesResponse.__annotations__
         assert "redact_email_content" in lm_types.UpdateRouteSettingsData.__annotations__
-        assert "disable_plaintext_generation" in lm_types.UpdateRouteSettingsData.__annotations__
+        assert "generate_plaintext_fallback" in lm_types.UpdateRouteSettingsData.__annotations__
+        assert "tls" in lm_types.UpdateRouteSettingsData.__annotations__
         assert "inbound_spam_threshold" in lm_types.UpdateRouteInboundSettingsData.__annotations__
+        assert "included_volume" in lm_types.TeamData.__annotations__
+        assert "assignable" in lm_types.TeamRoleData.__annotations__
+        assert "role_id" in lm_types.UpdateTeamMemberAssignmentData.__annotations__
+        assert "dkim_mode" in lm_types.DomainData.__annotations__
+        assert "source_message" in lm_types.SuppressedRecipientData.__annotations__
+        assert "spam_score" in lm_types.MessageListData.__annotations__
