@@ -186,15 +186,16 @@ class TestEmailEndpointSync:
         with Lettermint(api_token=api_token) as client:
             client.email.from_("sender@example.com").to("recipient@example.com").subject(
                 "Test"
-            ).metadata({"campaign_id": "123"}).tag("welcome").settings(
-                {"track_opens": False, "track_clicks": True, "tls": "enforced"}
-            ).send()
+            ).metadata({"campaign_id": "123"}).tag("welcome").tags(
+                [{"name": "campaign", "value": "welcome-v2"}]
+            ).settings({"track_opens": False, "track_clicks": True, "tls": "enforced"}).send()
 
         import json
 
         body = json.loads(route.calls.last.request.content)
         assert body["metadata"] == {"campaign_id": "123"}
         assert body["tag"] == "welcome"
+        assert body["tags"] == [{"name": "campaign", "value": "welcome-v2"}]
         assert body["settings"] == {
             "track_opens": False,
             "track_clicks": True,

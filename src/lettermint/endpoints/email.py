@@ -276,6 +276,11 @@ class EmailEndpoint(Endpoint):
         self._payload["tag"] = tag
         return self
 
+    def tags(self, tags: list[dict[str, str]]) -> Self:
+        """Set reusable name-value tags for the email."""
+        self._payload["tags"] = tags
+        return self
+
     def send(self) -> SendEmailResponse:
         """Send the composed email.
 
@@ -553,6 +558,11 @@ class AsyncEmailEndpoint(AsyncEndpoint):
             The current instance for method chaining.
         """
         self._payload["tag"] = tag
+        return self
+
+    def tags(self, tags: list[dict[str, str]]) -> Self:
+        """Set reusable name-value tags for the email."""
+        self._payload["tags"] = tags
         return self
 
     def send(self) -> Coroutine[Any, Any, SendEmailResponse]:
