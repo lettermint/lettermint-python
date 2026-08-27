@@ -128,6 +128,11 @@ class EmailEndpoint(Endpoint):
         self._payload["subject"] = subject
         return self
 
+    def scheduled_at(self, scheduled_at: str) -> Self:
+        """Set the requested delivery time for the email."""
+        self._payload["scheduled_at"] = scheduled_at
+        return self
+
     def html(self, html: str | None) -> Self:
         """Set the HTML body of the email.
 
@@ -422,6 +427,11 @@ class AsyncEmailEndpoint(AsyncEndpoint):
             The current instance for method chaining.
         """
         self._payload["subject"] = subject
+        return self
+
+    def scheduled_at(self, scheduled_at: str) -> Self:
+        """Set the requested delivery time for the email."""
+        self._payload["scheduled_at"] = scheduled_at
         return self
 
     def html(self, html: str | None) -> Self:

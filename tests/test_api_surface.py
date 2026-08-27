@@ -170,6 +170,38 @@ class TestFullApiEndpoints:
         assert text_route.called
 
     @respx.mock
+    def test_scheduled_message_endpoints(self) -> None:
+        reschedule_route = respx.patch("https://api.lettermint.co/v1/messages/message%2Fid").mock(
+            return_value=Response(
+                200,
+                json={
+                    "message_id": "message/id",
+                    "status": "scheduled",
+                    "scheduled_at": "2026-08-27T09:00:00Z",
+                },
+            )
+        )
+        cancel_route = respx.post("https://api.lettermint.co/v1/messages/message%2Fid/cancel").mock(
+            return_value=Response(
+                200, json={"message_id": "message/id", "status": "canceled", "scheduled_at": None}
+            )
+        )
+
+        with Lettermint.api("api-token") as api:
+            assert (
+                api.messages.reschedule("message/id", {"scheduled_at": "2026-08-27T09:00:00Z"})[
+                    "status"
+                ]
+                == "scheduled"
+            )
+            assert api.messages.cancel("message/id")["status"] == "canceled"
+
+        assert json.loads(reschedule_route.calls.last.request.content) == {
+            "scheduled_at": "2026-08-27T09:00:00Z"
+        }
+        assert cancel_route.called
+
+    @respx.mock
     def test_team_role_and_member_assignment_endpoints(self) -> None:
         roles_route = respx.get("https://api.lettermint.co/v1/team/roles").mock(
             return_value=Response(200, json={"data": []})
@@ -210,6 +242,8 @@ class TestFullApiEndpoints:
             (Lettermint.api("token").domains, "update_projects"),
             (Lettermint.api("token").messages, "list"),
             (Lettermint.api("token").messages, "retrieve"),
+            (Lettermint.api("token").messages, "reschedule"),
+            (Lettermint.api("token").messages, "cancel"),
             (Lettermint.api("token").messages, "events"),
             (Lettermint.api("token").messages, "source"),
             (Lettermint.api("token").messages, "html"),
@@ -253,7 +287,7 @@ class TestFullApiEndpoints:
         assert missing == []
 
     def test_generated_types_match_current_team_schema(self) -> None:
-        assert "auto_replied" in get_args(lm_types.MessageEventType)
+        assert "scheduled" in get_args(lm_types.MessageEventType)
         assert "message.auto_replied" in get_args(lm_types.WebhookEvent)
         assert "admin" in get_args(lm_types.BuiltInTeamRole)
         assert "members:manage" in get_args(lm_types.RbacPermission)
@@ -278,3 +312,5 @@ class TestFullApiEndpoints:
         assert "dkim_mode" in lm_types.DomainData.__annotations__
         assert "source_message" in lm_types.SuppressedRecipientData.__annotations__
         assert "spam_score" in lm_types.MessageListData.__annotations__
+        assert "scheduled_at" in lm_types.SendMailRequest.__annotations__
+        assert hasattr(lm_types, "RescheduleMessageRequest")

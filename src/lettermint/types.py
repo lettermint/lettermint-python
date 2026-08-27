@@ -7,6 +7,7 @@ from typing import Any, Literal, TypedDict
 from typing_extensions import NotRequired, Required, TypeAlias
 
 MessageStatus: TypeAlias = Literal[
+    "scheduled",
     "pending",
     "queued",
     "suppressed",
@@ -21,6 +22,7 @@ MessageStatus: TypeAlias = Literal[
     "blocked",
     "policy_rejected",
     "unsubscribed",
+    "canceled",
 ]
 TlsPolicy: TypeAlias = Literal["opportunistic", "enforced"]
 SendMailRequest = TypedDict(
@@ -33,6 +35,7 @@ SendMailRequest = TypedDict(
         "bcc": "NotRequired[list[str]]",
         "reply_to": "NotRequired[list[str]]",
         "subject": "Required[str]",
+        "scheduled_at": "NotRequired[str]",
         "headers": "NotRequired[dict[str, str]]",
         "metadata": "NotRequired[dict[str, str]]",
         "tag": "NotRequired[str | None]",
@@ -150,6 +153,7 @@ MessageData = TypedDict(
         "type": "Required[MessageType]",
         "status": "Required[MessageStatus]",
         "status_changed_at": "Required[str | None]",
+        "scheduled_at": "Required[str | None]",
         "tag": "Required[str | None]",
         "tags": "Required[list[dict[str, Any]]]",
         "from_email": "Required[str]",
@@ -169,6 +173,10 @@ MessageData = TypedDict(
 )
 
 MessageEventType: TypeAlias = Literal[
+    "scheduled",
+    "rescheduled",
+    "canceled",
+    "released",
     "queued",
     "processed",
     "suppressed",
@@ -207,6 +215,7 @@ MessageListData = TypedDict(
         "id": "Required[str]",
         "type": "Required[MessageType]",
         "status": "Required[MessageStatus]",
+        "scheduled_at": "Required[str | None]",
         "spam_score": "NotRequired[float | None]",
         "from_email": "Required[str]",
         "from_name": "Required[str | None]",
@@ -792,6 +801,20 @@ SendMailResponse = TypedDict(
     {
         "message_id": "Required[str]",
         "status": "Required[MessageStatus]",
+        "scheduled_at": "NotRequired[str]",
+    },
+)
+
+RescheduleMessageRequest = TypedDict(
+    "RescheduleMessageRequest",
+    {"scheduled_at": "Required[str]"},
+)
+RescheduleMessageResponse = TypedDict(
+    "RescheduleMessageResponse",
+    {
+        "message_id": "Required[str]",
+        "status": "Required[MessageStatus | None]",
+        "scheduled_at": "Required[str | None]",
     },
 )
 

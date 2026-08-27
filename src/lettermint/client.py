@@ -201,6 +201,19 @@ class LettermintClient:
         except httpx.TimeoutException as e:
             raise TimeoutError(f"Request timeout after {self._timeout}s") from e
 
+    def patch(
+        self,
+        path: str,
+        data: Any | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
+        """Make a PATCH request to the API."""
+        try:
+            response = self._client.patch(path, json=data, headers=self._request_headers(headers))
+            return self._handle_response(response)
+        except httpx.TimeoutException as e:
+            raise TimeoutError(f"Request timeout after {self._timeout}s") from e
+
     def delete(
         self,
         path: str,
@@ -424,6 +437,21 @@ class AsyncLettermintClient:
                 path,
                 json=data,
                 headers=self._request_headers(headers),
+            )
+            return self._handle_response(response)
+        except httpx.TimeoutException as e:
+            raise TimeoutError(f"Request timeout after {self._timeout}s") from e
+
+    async def patch(
+        self,
+        path: str,
+        data: Any | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
+        """Make a PATCH request to the API."""
+        try:
+            response = await self._client.patch(
+                path, json=data, headers=self._request_headers(headers)
             )
             return self._handle_response(response)
         except httpx.TimeoutException as e:
