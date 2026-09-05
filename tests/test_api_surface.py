@@ -186,6 +186,9 @@ class TestFullApiEndpoints:
                 200, json={"message_id": "message/id", "status": "canceled", "scheduled_at": None}
             )
         )
+        process_route = respx.post("https://api.lettermint.co/v1/messages/message%2Fid/process").mock(
+            return_value=Response(202, json={"data": {"message_id": "message/id", "status": "queued", "webhook_target_count": 1}})
+        )
 
         with Lettermint.api("api-token") as api:
             assert (
@@ -195,11 +198,13 @@ class TestFullApiEndpoints:
                 == "scheduled"
             )
             assert api.messages.cancel("message/id")["status"] == "canceled"
+            assert api.messages.process("message/id")["data"]["status"] == "queued"
 
         assert json.loads(reschedule_route.calls.last.request.content) == {
             "scheduled_at": "2026-08-27T09:00:00Z"
         }
         assert cancel_route.called
+        assert process_route.called
 
     @respx.mock
     def test_team_role_and_member_assignment_endpoints(self) -> None:
@@ -244,6 +249,7 @@ class TestFullApiEndpoints:
             (Lettermint.api("token").messages, "retrieve"),
             (Lettermint.api("token").messages, "reschedule"),
             (Lettermint.api("token").messages, "cancel"),
+            (Lettermint.api("token").messages, "process"),
             (Lettermint.api("token").messages, "events"),
             (Lettermint.api("token").messages, "source"),
             (Lettermint.api("token").messages, "html"),
