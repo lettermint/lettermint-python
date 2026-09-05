@@ -96,6 +96,14 @@ class MessagesEndpoint(Endpoint):
             ),
         )
 
+    def process(self, message_id: str) -> lm_types.ProcessInboundMessageResponse:
+        return cast(
+            lm_types.ProcessInboundMessageResponse,
+            self._client.post(
+                self._path("/messages/{messageId}/process", messageId=message_id), data={}
+            ),
+        )
+
     def events(self, message_id: str, query: Query | None = None) -> lm_types.MessageEventsResponse:
         return cast(
             lm_types.MessageEventsResponse,
@@ -371,6 +379,14 @@ class AsyncDomainsEndpoint(AsyncEndpoint):
             lm_types.RescheduleMessageResponse,
             await self._client.post(
                 self._path("/messages/{messageId}/cancel", messageId=message_id), data={}
+            ),
+        )
+
+    async def process(self, message_id: str) -> lm_types.ProcessInboundMessageResponse:
+        return cast(
+            lm_types.ProcessInboundMessageResponse,
+            await self._client.post(
+                self._path("/messages/{messageId}/process", messageId=message_id), data={}
             ),
         )
 

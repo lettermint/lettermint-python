@@ -10,6 +10,7 @@ MessageStatus: TypeAlias = Literal[
     "scheduled",
     "pending",
     "queued",
+    "quarantined",
     "suppressed",
     "processed",
     "delivered",
@@ -194,6 +195,7 @@ MessageEventType: TypeAlias = Literal[
     "inbound_received",
     "inbound_queued",
     "inbound_spam_blocked",
+    "inbound_released",
     "inbound_processed",
     "inbound_retry",
 ]
@@ -885,6 +887,12 @@ MessageIndexResponse = TypedDict(
 )
 
 MessageShowResponse: TypeAlias = MessageData
+ProcessInboundMessageResponse = TypedDict(
+    "ProcessInboundMessageResponse",
+    {
+        "data": "Required[dict[str, str | int]]",
+    },
+)
 MessageEventsResponse = TypedDict(
     "MessageEventsResponse",
     {
