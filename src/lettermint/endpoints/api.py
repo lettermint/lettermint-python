@@ -96,9 +96,9 @@ class MessagesEndpoint(Endpoint):
             ),
         )
 
-    def process(self, message_id: str) -> dict[str, Any]:
+    def process(self, message_id: str) -> lm_types.ProcessInboundMessageResponse:
         return cast(
-            dict[str, Any],
+            lm_types.ProcessInboundMessageResponse,
             self._client.post(
                 self._path("/messages/{messageId}/process", messageId=message_id), data={}
             ),
@@ -382,9 +382,9 @@ class AsyncDomainsEndpoint(AsyncEndpoint):
             ),
         )
 
-    async def process(self, message_id: str) -> dict[str, Any]:
+    async def process(self, message_id: str) -> lm_types.ProcessInboundMessageResponse:
         return cast(
-            dict[str, Any],
+            lm_types.ProcessInboundMessageResponse,
             await self._client.post(
                 self._path("/messages/{messageId}/process", messageId=message_id), data={}
             ),
