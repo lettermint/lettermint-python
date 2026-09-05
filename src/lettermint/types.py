@@ -887,6 +887,12 @@ MessageIndexResponse = TypedDict(
 )
 
 MessageShowResponse: TypeAlias = MessageData
+ProcessInboundMessageResponse = TypedDict(
+    "ProcessInboundMessageResponse",
+    {
+        "data": "Required[dict[str, str | int]]",
+    },
+)
 MessageEventsResponse = TypedDict(
     "MessageEventsResponse",
     {
