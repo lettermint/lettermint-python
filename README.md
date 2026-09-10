@@ -131,10 +131,18 @@ client.email.from_("sender@example.com").to("recipient@example.com").subject(
 ### Metadata and Tags
 
 ```python
+from lettermint import MessageTag
+
 client.email.from_("sender@example.com").to("recipient@example.com").subject(
     "Hello"
-).metadata({"campaign_id": "123", "user_id": "456"}).tag("welcome-campaign").send()
+).metadata({"campaign_id": "123", "user_id": "456"}).tag("welcome-campaign").tags([
+    MessageTag(name="campaign", value="welcome"),
+    MessageTag(name="customer", value="new"),
+]).send()
 ```
+
+`tag()` remains available for the legacy single tag. `tags()` accepts typed
+`MessageTag` values and the previous dictionary form.
 
 ### Routing
 

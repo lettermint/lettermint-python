@@ -8,7 +8,7 @@ async frameworks like FastAPI, Starlette, or aiohttp.
 import asyncio
 import os
 
-from lettermint import AsyncLettermint
+from lettermint import AsyncLettermint, MessageTag
 
 
 async def send_emails():
@@ -28,6 +28,7 @@ async def send_emails():
         .to(email["to"])
         .subject(f"Hello {email['name']}!")
         .html(f"<p>Welcome aboard, {email['name']}!</p>")
+        .tags([MessageTag(name="campaign", value="onboarding")])
         .send()
         for email in emails
     ]
