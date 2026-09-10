@@ -202,6 +202,34 @@ class TestEmailEndpointSync:
             "tls": "enforced",
         }
 
+    def test_typed_message_tags_and_legacy_dictionary_support(self, api_token: str) -> None:
+        from lettermint import MessageTag
+
+        with Lettermint(api_token=api_token) as client:
+            endpoint = client.email.tags(
+                [
+                    MessageTag(name="campaign", value="welcome"),
+                    {"name": "customer", "value": "new"},
+                ]
+            )
+            assert endpoint._payload["tags"] == [
+                {"name": "campaign", "value": "welcome"},
+                {"name": "customer", "value": "new"},
+            ]
+
+    def test_rejects_invalid_message_tags(self, api_token: str) -> None:
+        with Lettermint(api_token=api_token) as client:
+            with pytest.raises(ValueError):
+                client.email.tags(
+                    [{"name": "duplicate", "value": "one"}, {"name": "duplicate", "value": "two"}]
+                )
+            with pytest.raises(ValueError):
+                client.email.tags([{"name": "__LETTERMINT_internal", "value": "one"}])
+            with pytest.raises(ValueError):
+                client.email.tag("legacy").tags(
+                    [{"name": f"tag_{index}", "value": "one"} for index in range(20)]
+                )
+
     @respx.mock
     def test_send_with_route(self, api_token: str) -> None:
         """Test sending email with route."""

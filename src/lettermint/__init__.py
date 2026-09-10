@@ -51,6 +51,7 @@ from .exceptions import (
     WebhookVerificationError,
 )
 from .lettermint import ApiClient, AsyncApiClient, AsyncLettermint, Lettermint
+from .message_tag import MessageTag
 from .types import (
     EmailAttachment,
     EmailPayload,
@@ -86,4 +87,5 @@ __all__ = [
     "EmailStatus",
     "SendEmailResponse",
     "SendBatchEmailResponse",
+    "MessageTag",
 ]

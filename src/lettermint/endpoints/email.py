@@ -12,6 +12,7 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
+from ..message_tag import MessageTag, normalize_message_tags
 from ..types import SendBatchEmailResponse, SendBatchMailRequest, SendEmailResponse, TlsPolicy
 from .endpoint import AsyncEndpoint, Endpoint
 
@@ -278,12 +279,24 @@ class EmailEndpoint(Endpoint):
         Example:
             >>> client.email.tag("welcome-campaign")
         """
+        if len(self._payload.get("tags", [])) >= 20:
+            raise ValueError("A legacy tag and no more than 19 message tags are permitted")
         self._payload["tag"] = tag
         return self
 
-    def tags(self, tags: list[dict[str, str]]) -> Self:
-        """Set reusable name-value tags for the email."""
-        self._payload["tags"] = tags
+    def tags(self, tags: list[MessageTag | dict[str, str]]) -> Self:
+        """Set reusable name-value tags for the email.
+
+        Dictionaries remain supported for backward compatibility.
+        """
+        maximum = 19 if self._payload.get("tag") is not None else 20
+        if len(tags) > maximum:
+            raise ValueError(f"No more than {maximum} message tags are permitted")
+        normalized = [tag if isinstance(tag, MessageTag) else MessageTag(**tag) for tag in tags]
+        names = [tag.name for tag in normalized]
+        if len(names) != len(set(names)):
+            raise ValueError("Message tag names must be unique and case-sensitive")
+        self._payload["tags"] = [tag.to_dict() for tag in normalized]
         return self
 
     def send(self) -> SendEmailResponse:
@@ -325,7 +338,7 @@ class EmailEndpoint(Endpoint):
         try:
             response: SendBatchEmailResponse = self._client.post(
                 "/send/batch",
-                data=payload,
+                data=normalize_message_tags(payload),
                 headers=headers,
             )
             return response
@@ -567,12 +580,24 @@ class AsyncEmailEndpoint(AsyncEndpoint):
         Returns:
             The current instance for method chaining.
         """
+        if len(self._payload.get("tags", [])) >= 20:
+            raise ValueError("A legacy tag and no more than 19 message tags are permitted")
         self._payload["tag"] = tag
         return self
 
-    def tags(self, tags: list[dict[str, str]]) -> Self:
-        """Set reusable name-value tags for the email."""
-        self._payload["tags"] = tags
+    def tags(self, tags: list[MessageTag | dict[str, str]]) -> Self:
+        """Set reusable name-value tags for the email.
+
+        Dictionaries remain supported for backward compatibility.
+        """
+        maximum = 19 if self._payload.get("tag") is not None else 20
+        if len(tags) > maximum:
+            raise ValueError(f"No more than {maximum} message tags are permitted")
+        normalized = [tag if isinstance(tag, MessageTag) else MessageTag(**tag) for tag in tags]
+        names = [tag.name for tag in normalized]
+        if len(names) != len(set(names)):
+            raise ValueError("Message tag names must be unique and case-sensitive")
+        self._payload["tags"] = [tag.to_dict() for tag in normalized]
         return self
 
     def send(self) -> Coroutine[Any, Any, SendEmailResponse]:
@@ -612,7 +637,7 @@ class AsyncEmailEndpoint(AsyncEndpoint):
 
         response: SendBatchEmailResponse = await self._client.post(
             "/send/batch",
-            data=payload,
+            data=normalize_message_tags(payload),
             headers=headers,
         )
         return response
