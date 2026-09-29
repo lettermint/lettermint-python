@@ -65,6 +65,18 @@ SendMailRequest = TypedDict(
 SendBatchMailRequest: TypeAlias = list[SendMailRequest]
 AttachmentDelivery: TypeAlias = Literal["inline", "url"]
 BuiltInTeamRole: TypeAlias = Literal["owner", "admin", "member"]
+CursorPaginator = TypedDict(
+    "CursorPaginator",
+    {
+        "data": "Required[list[str]]",
+        "path": "Required[str | None]",
+        "per_page": "Required[int]",
+        "next_cursor": "Required[str | None]",
+        "next_page_url": "Required[str | None]",
+        "prev_cursor": "Required[str | None]",
+        "prev_page_url": "Required[str | None]",
+    },
+)
 DkimMode: TypeAlias = Literal["legacy_txt", "managed_cname"]
 DnsRecordPurpose: TypeAlias = Literal[
     "return_path", "dmarc", "dkim_legacy", "dkim_primary", "dkim_secondary"

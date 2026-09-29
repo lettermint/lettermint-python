@@ -12,7 +12,14 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
-from ..types import SandboxResult, SendBatchEmailResponse, SendEmailResponse
+from ..message_tag import MessageTag, normalize_message_tags
+from ..types import (
+    SandboxResult,
+    SendBatchEmailResponse,
+    SendBatchMailRequest,
+    SendEmailResponse,
+    TlsPolicy,
+)
 from .endpoint import AsyncEndpoint, Endpoint
 
 if TYPE_CHECKING:
@@ -128,6 +135,11 @@ class EmailEndpoint(Endpoint):
         self._payload["subject"] = subject
         return self
 
+    def scheduled_at(self, scheduled_at: str) -> Self:
+        """Set the requested delivery time for the email."""
+        self._payload["scheduled_at"] = scheduled_at
+        return self
+
     def html(self, html: str | None) -> Self:
         """Set the HTML body of the email.
 
@@ -207,6 +219,7 @@ class EmailEndpoint(Endpoint):
         filename: str,
         content: str,
         content_id: str | None = None,
+        content_type: str | None = None,
     ) -> Self:
         """Attach a file to the email.
 
@@ -214,6 +227,7 @@ class EmailEndpoint(Endpoint):
             filename: The attachment filename.
             content: The base64-encoded file content.
             content_id: Optional Content-ID for inline attachments.
+            content_type: Optional MIME type for the attachment.
 
         Returns:
             The current instance for method chaining.
@@ -233,8 +247,15 @@ class EmailEndpoint(Endpoint):
         }
         if content_id is not None:
             attachment["content_id"] = content_id
+        if content_type is not None:
+            attachment["content_type"] = content_type
 
         self._payload["attachments"].append(attachment)
+        return self
+
+    def settings(self, settings: dict[str, bool | TlsPolicy]) -> Self:
+        """Set per-email settings that override the selected route."""
+        self._payload["settings"] = settings
         return self
 
     def metadata(self, metadata: dict[str, str]) -> Self:
@@ -264,7 +285,24 @@ class EmailEndpoint(Endpoint):
         Example:
             >>> client.email.tag("welcome-campaign")
         """
+        if len(self._payload.get("tags", [])) >= 20:
+            raise ValueError("A legacy tag and no more than 19 message tags are permitted")
         self._payload["tag"] = tag
+        return self
+
+    def tags(self, tags: list[MessageTag | dict[str, str]]) -> Self:
+        """Set reusable name-value tags for the email.
+
+        Dictionaries remain supported for backward compatibility.
+        """
+        maximum = 19 if self._payload.get("tag") is not None else 20
+        if len(tags) > maximum:
+            raise ValueError(f"No more than {maximum} message tags are permitted")
+        normalized = [tag if isinstance(tag, MessageTag) else MessageTag(**tag) for tag in tags]
+        names = [tag.name for tag in normalized]
+        if len(names) != len(set(names)):
+            raise ValueError("Message tag names must be unique and case-sensitive")
+        self._payload["tags"] = [tag.to_dict() for tag in normalized]
         return self
 
     def sandbox_result(self, result: SandboxResult) -> Self:
@@ -302,10 +340,21 @@ class EmailEndpoint(Endpoint):
         finally:
             self._reset()
 
-    def send_batch(self, payload: list[dict[str, Any]]) -> SendBatchEmailResponse:
+    def send_batch(self, payload: SendBatchMailRequest) -> SendBatchEmailResponse:
         """Send multiple emails in one batch."""
-        response: SendBatchEmailResponse = self._client.post("/send/batch", data=payload)
-        return response
+        headers: dict[str, str] | None = None
+        if self._idempotency_key is not None:
+            headers = {"Idempotency-Key": self._idempotency_key}
+
+        try:
+            response: SendBatchEmailResponse = self._client.post(
+                "/send/batch",
+                data=normalize_message_tags(payload),
+                headers=headers,
+            )
+            return response
+        finally:
+            self._reset()
 
     def ping(self) -> str:
         """Ping the Sending API."""
@@ -404,6 +453,11 @@ class AsyncEmailEndpoint(AsyncEndpoint):
         self._payload["subject"] = subject
         return self
 
+    def scheduled_at(self, scheduled_at: str) -> Self:
+        """Set the requested delivery time for the email."""
+        self._payload["scheduled_at"] = scheduled_at
+        return self
+
     def html(self, html: str | None) -> Self:
         """Set the HTML body of the email.
 
@@ -483,6 +537,7 @@ class AsyncEmailEndpoint(AsyncEndpoint):
         filename: str,
         content: str,
         content_id: str | None = None,
+        content_type: str | None = None,
     ) -> Self:
         """Attach a file to the email.
 
@@ -490,6 +545,7 @@ class AsyncEmailEndpoint(AsyncEndpoint):
             filename: The attachment filename.
             content: The base64-encoded file content.
             content_id: Optional Content-ID for inline attachments.
+            content_type: Optional MIME type for the attachment.
 
         Returns:
             The current instance for method chaining.
@@ -503,8 +559,15 @@ class AsyncEmailEndpoint(AsyncEndpoint):
         }
         if content_id is not None:
             attachment["content_id"] = content_id
+        if content_type is not None:
+            attachment["content_type"] = content_type
 
         self._payload["attachments"].append(attachment)
+        return self
+
+    def settings(self, settings: dict[str, bool | TlsPolicy]) -> Self:
+        """Set per-email settings that override the selected route."""
+        self._payload["settings"] = settings
         return self
 
     def metadata(self, metadata: dict[str, str]) -> Self:
@@ -528,7 +591,24 @@ class AsyncEmailEndpoint(AsyncEndpoint):
         Returns:
             The current instance for method chaining.
         """
+        if len(self._payload.get("tags", [])) >= 20:
+            raise ValueError("A legacy tag and no more than 19 message tags are permitted")
         self._payload["tag"] = tag
+        return self
+
+    def tags(self, tags: list[MessageTag | dict[str, str]]) -> Self:
+        """Set reusable name-value tags for the email.
+
+        Dictionaries remain supported for backward compatibility.
+        """
+        maximum = 19 if self._payload.get("tag") is not None else 20
+        if len(tags) > maximum:
+            raise ValueError(f"No more than {maximum} message tags are permitted")
+        normalized = [tag if isinstance(tag, MessageTag) else MessageTag(**tag) for tag in tags]
+        names = [tag.name for tag in normalized]
+        if len(names) != len(set(names)):
+            raise ValueError("Message tag names must be unique and case-sensitive")
+        self._payload["tags"] = [tag.to_dict() for tag in normalized]
         return self
 
     def sandbox_result(self, result: SandboxResult) -> Self:
@@ -564,9 +644,18 @@ class AsyncEmailEndpoint(AsyncEndpoint):
 
         return _send()
 
-    async def send_batch(self, payload: list[dict[str, Any]]) -> SendBatchEmailResponse:
+    async def send_batch(self, payload: SendBatchMailRequest) -> SendBatchEmailResponse:
         """Send multiple emails in one batch asynchronously."""
-        response: SendBatchEmailResponse = await self._client.post("/send/batch", data=payload)
+        headers: dict[str, str] | None = None
+        if self._idempotency_key is not None:
+            headers = {"Idempotency-Key": self._idempotency_key}
+        self._reset()
+
+        response: SendBatchEmailResponse = await self._client.post(
+            "/send/batch",
+            data=normalize_message_tags(payload),
+            headers=headers,
+        )
         return response
 
     async def ping(self) -> str:
