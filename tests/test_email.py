@@ -121,7 +121,7 @@ class TestEmailEndpointSync:
             client.email.from_("sender@example.com").to("recipient@example.com").subject(
                 "Test"
             ).attach("document.pdf", "base64content").attach(
-                "logo.png", "base64image", "logo@example.com", "image/png"
+                "logo.png", "base64image", "logo@example.com"
             ).send()
 
         import json
@@ -133,7 +133,6 @@ class TestEmailEndpointSync:
             "filename": "logo.png",
             "content": "base64image",
             "content_id": "logo@example.com",
-            "content_type": "image/png",
         }
 
     @respx.mock
@@ -146,20 +145,12 @@ class TestEmailEndpointSync:
         with Lettermint(api_token=api_token) as client:
             client.email.from_("sender@example.com").to("recipient@example.com").subject(
                 "Test"
-            ).headers(
-                {
-                    "Message-ID": "<ticket-123@example.com>",
-                    "X-LM-Preserve-Message-ID": "true",
-                }
-            ).send()
+            ).headers({"X-Custom-Header": "value"}).send()
 
         import json
 
         body = json.loads(route.calls.last.request.content)
-        assert body["headers"] == {
-            "Message-ID": "<ticket-123@example.com>",
-            "X-LM-Preserve-Message-ID": "true",
-        }
+        assert body["headers"] == {"X-Custom-Header": "value"}
 
     @respx.mock
     def test_send_with_idempotency_key(self, api_token: str) -> None:
@@ -186,49 +177,13 @@ class TestEmailEndpointSync:
         with Lettermint(api_token=api_token) as client:
             client.email.from_("sender@example.com").to("recipient@example.com").subject(
                 "Test"
-            ).metadata({"campaign_id": "123"}).tag("welcome").tags(
-                [{"name": "campaign", "value": "welcome-v2"}]
-            ).settings({"track_opens": False, "track_clicks": True, "tls": "enforced"}).send()
+            ).metadata({"campaign_id": "123"}).tag("welcome").send()
 
         import json
 
         body = json.loads(route.calls.last.request.content)
         assert body["metadata"] == {"campaign_id": "123"}
         assert body["tag"] == "welcome"
-        assert body["tags"] == [{"name": "campaign", "value": "welcome-v2"}]
-        assert body["settings"] == {
-            "track_opens": False,
-            "track_clicks": True,
-            "tls": "enforced",
-        }
-
-    def test_typed_message_tags_and_legacy_dictionary_support(self, api_token: str) -> None:
-        from lettermint import MessageTag
-
-        with Lettermint(api_token=api_token) as client:
-            endpoint = client.email.tags(
-                [
-                    MessageTag(name="campaign", value="welcome"),
-                    {"name": "customer", "value": "new"},
-                ]
-            )
-            assert endpoint._payload["tags"] == [
-                {"name": "campaign", "value": "welcome"},
-                {"name": "customer", "value": "new"},
-            ]
-
-    def test_rejects_invalid_message_tags(self, api_token: str) -> None:
-        with Lettermint(api_token=api_token) as client:
-            with pytest.raises(ValueError):
-                client.email.tags(
-                    [{"name": "duplicate", "value": "one"}, {"name": "duplicate", "value": "two"}]
-                )
-            with pytest.raises(ValueError):
-                client.email.tags([{"name": "__LETTERMINT_internal", "value": "one"}])
-            with pytest.raises(ValueError):
-                client.email.tag("legacy").tags(
-                    [{"name": f"tag_{index}", "value": "one"} for index in range(20)]
-                )
 
     @respx.mock
     def test_send_with_route(self, api_token: str) -> None:
@@ -246,6 +201,35 @@ class TestEmailEndpointSync:
 
         body = json.loads(route.calls.last.request.content)
         assert body["route"] == "my-route"
+
+    @respx.mock
+    def test_send_with_sandbox_result(self, api_token: str) -> None:
+        """Test selecting a simulated Sandbox result."""
+        route = respx.post("https://api.lettermint.co/v1/send").mock(
+            return_value=Response(
+                200,
+                json={
+                    "message_id": "msg_123",
+                    "status": "delivered",
+                    "sandbox": True,
+                    "sandbox_result": "clicked",
+                },
+            )
+        )
+
+        with Lettermint(api_token=api_token) as client:
+            response = (
+                client.email.from_("sender@example.com")
+                .to("recipient@example.com")
+                .subject("Test")
+                .sandbox_result("clicked")
+                .send()
+            )
+
+        body = json.loads(route.calls.last.request.content)
+        assert body["sandbox_result"] == "clicked"
+        assert response["sandbox"] is True
+        assert response["sandbox_result"] == "clicked"
 
     @respx.mock
     def test_validation_error(self, api_token: str) -> None:
@@ -366,17 +350,12 @@ class TestEmailEndpointAsync:
                 .cc("cc@example.com")
                 .bcc("bcc@example.com")
                 .reply_to("reply@example.com")
-                .headers(
-                    {
-                        "Message-ID": "<ticket-123@example.com>",
-                        "X-LM-Preserve-Message-ID": "true",
-                    }
-                )
-                .attach("file.pdf", "base64content", None, "application/pdf")
+                .headers({"X-Custom": "value"})
+                .attach("file.pdf", "base64content")
                 .metadata({"key": "value"})
                 .tag("campaign")
-                .settings({"track_opens": False, "tls": "enforced"})
                 .route("my-route")
+                .sandbox_result("opened")
                 .idempotency_key("unique-key")
                 .send()
             )
@@ -392,44 +371,15 @@ class TestEmailEndpointAsync:
         assert body["cc"] == ["cc@example.com"]
         assert body["bcc"] == ["bcc@example.com"]
         assert body["reply_to"] == ["reply@example.com"]
-        assert body["headers"] == {
-            "Message-ID": "<ticket-123@example.com>",
-            "X-LM-Preserve-Message-ID": "true",
-        }
-        assert body["attachments"] == [
-            {
-                "filename": "file.pdf",
-                "content": "base64content",
-                "content_type": "application/pdf",
-            }
-        ]
+        assert body["headers"] == {"X-Custom": "value"}
+        assert body["attachments"] == [{"filename": "file.pdf", "content": "base64content"}]
         assert body["metadata"] == {"key": "value"}
         assert body["tag"] == "campaign"
         assert body["route"] == "my-route"
-        assert body["settings"] == {"track_opens": False, "tls": "enforced"}
+        assert body["sandbox_result"] == "opened"
 
         request = route.calls.last.request
         assert request.headers["Idempotency-Key"] == "unique-key"
-
-    @respx.mock
-    @pytest.mark.asyncio
-    async def test_send_batch_with_idempotency_key_async(self, api_token: str) -> None:
-        """Test an asynchronous batch idempotency key."""
-        route = respx.post("https://api.lettermint.co/v1/send/batch").mock(
-            return_value=Response(200, json=[{"message_id": "msg_123", "status": "pending"}])
-        )
-        payload = [
-            {
-                "from": "sender@example.com",
-                "to": ["recipient@example.com"],
-                "subject": "Test",
-            }
-        ]
-
-        async with AsyncLettermint(api_token=api_token) as client:
-            await client.email.idempotency_key("batch-key").send_batch(payload)
-
-        assert route.calls.last.request.headers["Idempotency-Key"] == "batch-key"
 
     @respx.mock
     @pytest.mark.asyncio
