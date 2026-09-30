@@ -126,6 +126,53 @@ class MessagesEndpoint(Endpoint):
 
 
 class ProjectsEndpoint(Endpoint):
+    def retrieve_report_forwarding(self, project_id: str) -> lm_types.GetReportForwardingResponse:
+        return cast(
+            lm_types.GetReportForwardingResponse,
+            self._client.get(
+                self._path("/projects/{projectId}/report-forwarding", projectId=project_id)
+            ),
+        )
+
+    def update_report_forwarding(
+        self, project_id: str, data: lm_types.UpdateReportForwardingRequest
+    ) -> lm_types.UpdateReportForwardingResponse:
+        return cast(
+            lm_types.UpdateReportForwardingResponse,
+            self._client.put(
+                self._path("/projects/{projectId}/report-forwarding", projectId=project_id),
+                data=data,
+            ),
+        )
+
+    def delete_report_forwarding(self, project_id: str) -> None:
+        self._client.delete(
+            self._path("/projects/{projectId}/report-forwarding", projectId=project_id)
+        )
+
+    def verify_report_forwarding(
+        self, project_id: str, data: lm_types.VerifyReportForwardingRequest
+    ) -> lm_types.VerifyReportForwardingResponse:
+        return cast(
+            lm_types.VerifyReportForwardingResponse,
+            self._client.post(
+                self._path("/projects/{projectId}/report-forwarding/verify", projectId=project_id),
+                data=data,
+            ),
+        )
+
+    def resend_report_forwarding_code(
+        self, project_id: str
+    ) -> lm_types.ResendReportForwardingCodeResponse:
+        return cast(
+            lm_types.ResendReportForwardingCodeResponse,
+            self._client.post(
+                self._path(
+                    "/projects/{projectId}/report-forwarding/resend-code", projectId=project_id
+                )
+            ),
+        )
+
     def list(self, query: Query | None = None) -> lm_types.ProjectIndexResponse:
         return cast(lm_types.ProjectIndexResponse, self._client.get("/projects", params=query))
 
@@ -473,6 +520,55 @@ class AsyncMessagesEndpoint(AsyncEndpoint):
 
 
 class AsyncProjectsEndpoint(AsyncEndpoint):
+    async def retrieve_report_forwarding(
+        self, project_id: str
+    ) -> lm_types.GetReportForwardingResponse:
+        return cast(
+            lm_types.GetReportForwardingResponse,
+            await self._client.get(
+                self._path("/projects/{projectId}/report-forwarding", projectId=project_id)
+            ),
+        )
+
+    async def update_report_forwarding(
+        self, project_id: str, data: lm_types.UpdateReportForwardingRequest
+    ) -> lm_types.UpdateReportForwardingResponse:
+        return cast(
+            lm_types.UpdateReportForwardingResponse,
+            await self._client.put(
+                self._path("/projects/{projectId}/report-forwarding", projectId=project_id),
+                data=data,
+            ),
+        )
+
+    async def delete_report_forwarding(self, project_id: str) -> None:
+        await self._client.delete(
+            self._path("/projects/{projectId}/report-forwarding", projectId=project_id)
+        )
+
+    async def verify_report_forwarding(
+        self, project_id: str, data: lm_types.VerifyReportForwardingRequest
+    ) -> lm_types.VerifyReportForwardingResponse:
+        return cast(
+            lm_types.VerifyReportForwardingResponse,
+            await self._client.post(
+                self._path("/projects/{projectId}/report-forwarding/verify", projectId=project_id),
+                data=data,
+            ),
+        )
+
+    async def resend_report_forwarding_code(
+        self, project_id: str
+    ) -> lm_types.ResendReportForwardingCodeResponse:
+        return cast(
+            lm_types.ResendReportForwardingCodeResponse,
+            await self._client.post(
+                self._path(
+                    "/projects/{projectId}/report-forwarding/resend-code", projectId=project_id
+                )
+            ),
+        )
+
     async def list(self, query: Query | None = None) -> lm_types.ProjectIndexResponse:
         return cast(
             lm_types.ProjectIndexResponse, await self._client.get("/projects", params=query)

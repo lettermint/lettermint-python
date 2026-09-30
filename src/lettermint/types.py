@@ -54,7 +54,7 @@ SendMailRequest = TypedDict(
         "metadata": "NotRequired[dict[str, str]]",
         "tag": "NotRequired[str | None]",
         "tags": "NotRequired[list[dict[str, Any]]]",
-        "settings": "NotRequired[dict[str, Any] | None]",
+        "settings": "NotRequired[dict[str, Any]]",
         "html": "NotRequired[str | None]",
         "text": "NotRequired[str | None]",
         "attachments": "NotRequired[list[dict[str, Any]]]",
@@ -337,6 +337,7 @@ ProjectListData = TypedDict(
     {
         "id": "Required[str]",
         "name": "Required[str]",
+        "delivery_mode": "Required[DeliveryMode]",
         "smtp_enabled": "Required[bool]",
         "routes_count": "Required[int]",
         "domains_count": "Required[int]",
@@ -345,6 +346,7 @@ ProjectListData = TypedDict(
         "updated_at": "Required[str]",
     },
 )
+
 
 RbacConflictCode: TypeAlias = Literal[
     "stale_resource",
@@ -388,6 +390,7 @@ RbacPermission: TypeAlias = Literal[
     "webhooks:delete",
     "webhooks:rotate_secret",
     "stats:read",
+    "analytics:read",
     "messages:read",
     "messages:read_content",
     "messages:send",
@@ -508,11 +511,13 @@ StoreProjectData = TypedDict(
     {
         "name": "Required[str]",
         "smtp_enabled": "NotRequired[bool]",
+        "delivery_mode": "NotRequired[DeliveryMode]",
         "initial_routes": "NotRequired[InitialRoutes]",
         "short_token": "NotRequired[bool]",
-        "delivery_mode": "NotRequired[DeliveryMode]",
+        "redact_email_content": "NotRequired[bool]",
     },
 )
+
 
 StoreRouteData = TypedDict(
     "StoreRouteData",
@@ -520,8 +525,14 @@ StoreRouteData = TypedDict(
         "name": "Required[str]",
         "route_type": "Required[RouteType]",
         "slug": "NotRequired[str | None]",
+        "settings": "NotRequired[UpdateRouteSettingsData | None]",
+        "inbound_settings": "NotRequired[UpdateRouteInboundSettingsData | None]",
+        "inbound_domain": "NotRequired[str | None]",
+        "inbound_spam_threshold": "NotRequired[float | None]",
+        "attachment_delivery": "NotRequired[AttachmentDelivery | None]",
     },
 )
+
 
 SuppressionReason: TypeAlias = Literal["spam_complaint", "hard_bounce", "unsubscribe", "manual"]
 SuppressionScope: TypeAlias = Literal["team", "project", "route"]
@@ -731,15 +742,20 @@ UpdateRouteData = TypedDict(
         "name": "NotRequired[str | None]",
         "settings": "NotRequired[UpdateRouteSettingsData | None]",
         "inbound_settings": "NotRequired[UpdateRouteInboundSettingsData | None]",
+        "inbound_domain": "NotRequired[str | None]",
+        "inbound_spam_threshold": "NotRequired[float | None]",
+        "attachment_delivery": "NotRequired[AttachmentDelivery | None]",
     },
 )
+
 
 UpdateTeamData = TypedDict(
     "UpdateTeamData",
     {
-        "name": "NotRequired[str | None]",
+        "name": "NotRequired[str]",
     },
 )
+
 
 UpdateTeamMemberAssignmentData = TypedDict(
     "UpdateTeamMemberAssignmentData",
@@ -821,6 +837,7 @@ WebhookDeliveryListData = TypedDict(
         "source_project_id": "Required[str | None]",
         "source_route_id": "Required[str | None]",
         "status": "Required[WebhookDeliveryStatus]",
+        "sandbox": "Required[bool]",
         "attempt_number": "Required[int]",
         "http_status_code": "Required[int | None]",
         "duration_ms": "Required[int | None]",
@@ -828,6 +845,7 @@ WebhookDeliveryListData = TypedDict(
         "created_at": "Required[str]",
     },
 )
+
 
 WebhookListData = TypedDict(
     "WebhookListData",
@@ -841,11 +859,13 @@ WebhookListData = TypedDict(
         "url": "Required[str]",
         "events": "Required[list[str]]",
         "enabled": "Required[bool]",
+        "delivery_mode_filter": "Required[WebhookDeliveryModeFilter]",
         "last_called_at": "Required[str | None]",
         "created_at": "Required[str]",
         "updated_at": "Required[str]",
     },
 )
+
 
 WebhookSecretData = TypedDict(
     "WebhookSecretData",
@@ -882,16 +902,17 @@ EmailStatus: TypeAlias = MessageStatus
 SendMailResponse = TypedDict(
     "SendMailResponse",
     {
-        "message_id": "Required[str | None]",
-        "status": "Required[MessageStatus]",
-        "scheduled_at": "NotRequired[str]",
+        "message_id": "Required[str]",
+        "status": "Required[Literal['pending', 'scheduled']]",
         "sandbox": "NotRequired[Literal[True]]",
         "sandbox_result": "NotRequired[SandboxResult]",
+        "scheduled_at": "NotRequired[str]",
     },
 )
 
+
 SendBatchMailResponse: TypeAlias = list[SendMailResponse]
-PingResponse: TypeAlias = Literal[200]
+PingResponse: TypeAlias = str
 DomainIndexResponse = TypedDict(
     "DomainIndexResponse",
     {
@@ -1009,10 +1030,11 @@ ProjectStoreResponse = TypedDict(
     "ProjectStoreResponse",
     {
         "data": "Required[ProjectData]",
-        "message": "Required[Literal['Project created successfully.']]",
-        "api_token": "Required[str]",
+        "message": "Required[str]",
+        "api_token": "NotRequired[str]",
     },
 )
+
 
 ProjectShowResponse: TypeAlias = ProjectData
 ProjectUpdateRequest: TypeAlias = UpdateProjectData
@@ -1086,12 +1108,13 @@ RouteVerifyInboundDomainResponse = TypedDict(
     },
 )
 
+
 StatsIndexResponse: TypeAlias = StatsData
 SuppressionIndexResponse = TypedDict(
     "SuppressionIndexResponse",
     {
         "data": "Required[list[SuppressedRecipientData]]",
-        "path": "Required[str | None]",
+        "path": "Required[str]",
         "per_page": "Required[int]",
         "next_cursor": "Required[str | None]",
         "next_page_url": "Required[str | None]",
@@ -1099,6 +1122,7 @@ SuppressionIndexResponse = TypedDict(
         "prev_page_url": "Required[str | None]",
     },
 )
+
 
 SuppressionStoreRequest: TypeAlias = StoreSuppressionData
 SuppressionStoreResponse = TypedDict(
@@ -1112,12 +1136,14 @@ SuppressionStoreResponse = TypedDict(
 SuppressionDestroyResponse = TypedDict(
     "SuppressionDestroyResponse",
     {
-        "success": "Required[bool]",
-        "status": "Required[Literal['removed']]",
+        "success": "Required[Literal[True]]",
+        "status": "Required[Literal['removed', 'review_ticket_created', 'review_ticket_exists']]",
         "message": "Required[str]",
         "confidence": "NotRequired[float]",
+        "ticket_identifier": "NotRequired[str]",
     },
 )
+
 
 TeamShowResponse: TypeAlias = TeamData
 TeamUpdateRequest: TypeAlias = UpdateTeamData
@@ -1224,3 +1250,1483 @@ WebhookDeliveriesResponse = TypedDict(
 WebhookShowDeliveryResponse: TypeAlias = WebhookDeliveryData
 SendEmailResponse: TypeAlias = SendMailResponse
 SendBatchEmailResponse: TypeAlias = SendBatchMailResponse
+
+ProjectCreatedData = TypedDict(
+    "ProjectCreatedData",
+    {
+        "data": "Required[ProjectData]",
+        "message": "Required[str]",
+        "api_token": "NotRequired[str]",
+    },
+)
+
+
+ReportForwardingRequest = TypedDict(
+    "ReportForwardingRequest",
+    {
+        "destination": "Required[str]",
+    },
+)
+
+
+ReportForwardingResource = TypedDict(
+    "ReportForwardingResource",
+    {
+        "destination": "Required[str | None]",
+        "verified": "Required[bool]",
+        "verified_at": "Required[str | None]",
+    },
+)
+
+
+VerifyReportForwardingRequest = TypedDict(
+    "VerifyReportForwardingRequest",
+    {
+        "code": "Required[str]",
+    },
+)
+
+
+UpdateReportForwardingRequest: TypeAlias = ReportForwardingRequest
+
+GetReportForwardingResponse = TypedDict(
+    "GetReportForwardingResponse",
+    {
+        "data": "Required[ReportForwardingResource]",
+    },
+)
+
+
+UpdateReportForwardingResponse = TypedDict(
+    "UpdateReportForwardingResponse",
+    {
+        "data": "Required[ReportForwardingResource]",
+    },
+)
+
+
+VerifyReportForwardingResponse = TypedDict(
+    "VerifyReportForwardingResponse",
+    {
+        "data": "Required[ReportForwardingResource]",
+    },
+)
+
+
+ResendReportForwardingCodeResponse = TypedDict(
+    "ResendReportForwardingCodeResponse",
+    {
+        "data": "Required[ReportForwardingResource]",
+    },
+)
+
+
+AnalyticsResponseData = TypedDict(
+    "AnalyticsResponseData",
+    {
+        "data": "Required[dict[str, Any]]",
+        "meta": "Required[dict[str, Any]]",
+        "pagination": "Required[list[str]]",
+    },
+)
+
+
+AnalyticsRequestFiltersItem = TypedDict(
+    "AnalyticsRequestFiltersItem",
+    {
+        "dimension": "Required[str]",
+        "operator": "Required[Literal['eq', 'in', 'not_in', 'is_null', 'is_not_null']]",
+        "values": "NotRequired[list[str]]",
+    },
+)
+
+
+AnalyticsRequestSort = TypedDict(
+    "AnalyticsRequestSort",
+    {
+        "metric": "Required[Literal['accepted', 'processed', 'suppressed', 'policy_rejected', 'application_failed', 'mta_accepted', 'canceled', 'messages', 'delivered', 'bounced', 'soft_bounced', 'administratively_bounced', 'deferred_recipients', 'deferred_events', 'delivery_attempts', 'attempted_recipients', 'transport_outcome_recipients', 'effective_delivered', 'open_tracked_delivered', 'click_tracked_delivered', 'out_of_band_bounced_recipients', 'out_of_band_bounce_events', 'complained', 'unsubscribed', 'human_opens', 'human_opens_events', 'human_clicks', 'human_clicks_events', 'machine_opens', 'machine_opens_events', 'machine_clicks', 'machine_clicks_events', 'privacy_opens', 'privacy_opens_events', 'privacy_clicks', 'privacy_clicks_events', 'bot_opens', 'bot_opens_events', 'bot_clicks', 'bot_clicks_events', 'scanner_opens', 'scanner_opens_events', 'scanner_clicks', 'scanner_clicks_events', 'observed_opens', 'observed_opens_events', 'observed_clicks', 'observed_clicks_events', 'delivery_rate', 'effective_delivery_rate', 'bounce_rate', 'deferral_rate', 'complaint_rate', 'human_open_rate', 'human_click_rate', 'processing_latency_p50_ms', 'processing_latency_p95_ms', 'processing_latency_p99_ms', 'processing_latency_samples', 'delivery_latency_p50_ms', 'delivery_latency_p95_ms', 'delivery_latency_p99_ms', 'delivery_latency_samples', 'total_latency_p50_ms', 'total_latency_p95_ms', 'total_latency_p99_ms', 'total_latency_samples']]",
+        "direction": "Required[Literal['asc', 'desc']]",
+    },
+)
+
+
+AnalyticsRequest = TypedDict(
+    "AnalyticsRequest",
+    {
+        "metrics": "Required[list[Literal['accepted', 'processed', 'suppressed', 'policy_rejected', 'application_failed', 'mta_accepted', 'canceled', 'messages', 'delivered', 'bounced', 'soft_bounced', 'administratively_bounced', 'deferred_recipients', 'deferred_events', 'delivery_attempts', 'attempted_recipients', 'transport_outcome_recipients', 'effective_delivered', 'open_tracked_delivered', 'click_tracked_delivered', 'out_of_band_bounced_recipients', 'out_of_band_bounce_events', 'complained', 'unsubscribed', 'human_opens', 'human_opens_events', 'human_clicks', 'human_clicks_events', 'machine_opens', 'machine_opens_events', 'machine_clicks', 'machine_clicks_events', 'privacy_opens', 'privacy_opens_events', 'privacy_clicks', 'privacy_clicks_events', 'bot_opens', 'bot_opens_events', 'bot_clicks', 'bot_clicks_events', 'scanner_opens', 'scanner_opens_events', 'scanner_clicks', 'scanner_clicks_events', 'observed_opens', 'observed_opens_events', 'observed_clicks', 'observed_clicks_events', 'delivery_rate', 'effective_delivery_rate', 'bounce_rate', 'deferral_rate', 'complaint_rate', 'human_open_rate', 'human_click_rate', 'processing_latency_p50_ms', 'processing_latency_p95_ms', 'processing_latency_p99_ms', 'processing_latency_samples', 'delivery_latency_p50_ms', 'delivery_latency_p95_ms', 'delivery_latency_p99_ms', 'delivery_latency_samples', 'total_latency_p50_ms', 'total_latency_p95_ms', 'total_latency_p99_ms', 'total_latency_samples']]]",
+        "from": "NotRequired[str]",
+        "to": "NotRequired[str]",
+        "timezone": "NotRequired[str]",
+        "include": "NotRequired[list[Literal['summary', 'time_series', 'breakdown']]]",
+        "group_by": "NotRequired[list[str]]",
+        "filters": "NotRequired[list[AnalyticsRequestFiltersItem]]",
+        "interval": "NotRequired[Literal['hour', 'day']]",
+        "compare": "NotRequired[Literal['previous_period']]",
+        "include_trend": "NotRequired[bool]",
+        "sort": "NotRequired[AnalyticsRequestSort]",
+        "limit": "NotRequired[int]",
+        "cursor": "NotRequired[str]",
+    },
+)
+
+
+AnalyticsResponseMetaComparison = TypedDict(
+    "AnalyticsResponseMetaComparison",
+    {
+        "from": "Required[str]",
+        "to": "Required[str]",
+        "partial": "Required[bool]",
+    },
+)
+
+
+AnalyticsResponseMeta = TypedDict(
+    "AnalyticsResponseMeta",
+    {
+        "time_basis": "NotRequired[Literal['event']]",
+        "timezone": "NotRequired[str]",
+        "interval": "NotRequired[Literal['hour', 'day']]",
+        "from": "NotRequired[str]",
+        "to": "NotRequired[str]",
+        "effective_to": "NotRequired[str]",
+        "alignment": "NotRequired[Literal['hour', 'day']]",
+        "generated_at": "NotRequired[str]",
+        "available_since": "NotRequired[str]",
+        "partial": "NotRequired[bool]",
+        "ongoing": "NotRequired[bool]",
+        "collection_completeness": "NotRequired[Literal['best_effort']]",
+        "last_ingested_at": "NotRequired[str | None]",
+        "metric_definition_version": "NotRequired[str]",
+        "ranked_group_limit": "NotRequired[int]",
+        "comparison": "NotRequired[AnalyticsResponseMetaComparison]",
+    },
+)
+
+
+AnalyticsResponsePagination = TypedDict(
+    "AnalyticsResponsePagination",
+    {
+        "total_groups": "Required[int]",
+        "returned_groups": "Required[int]",
+        "next_cursor": "Required[str | None]",
+        "truncated": "Required[bool]",
+    },
+)
+
+
+AnalyticsResponse = TypedDict(
+    "AnalyticsResponse",
+    {
+        "data": "Required[AnalyticsResponsePayload]",
+        "meta": "Required[AnalyticsResponseMeta]",
+        "pagination": "Required[AnalyticsResponsePagination]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryMetrics = TypedDict(
+    "AnalyticsResponsePayloadSummaryMetrics",
+    {
+        "accepted": "NotRequired[int | None]",
+        "processed": "NotRequired[int | None]",
+        "suppressed": "NotRequired[int | None]",
+        "policy_rejected": "NotRequired[int | None]",
+        "application_failed": "NotRequired[int | None]",
+        "mta_accepted": "NotRequired[int | None]",
+        "canceled": "NotRequired[int | None]",
+        "messages": "NotRequired[int | None]",
+        "delivered": "NotRequired[int | None]",
+        "bounced": "NotRequired[int | None]",
+        "soft_bounced": "NotRequired[int | None]",
+        "administratively_bounced": "NotRequired[int | None]",
+        "deferred_recipients": "NotRequired[int | None]",
+        "deferred_events": "NotRequired[int | None]",
+        "delivery_attempts": "NotRequired[int | None]",
+        "attempted_recipients": "NotRequired[int | None]",
+        "transport_outcome_recipients": "NotRequired[int | None]",
+        "effective_delivered": "NotRequired[int | None]",
+        "open_tracked_delivered": "NotRequired[int | None]",
+        "click_tracked_delivered": "NotRequired[int | None]",
+        "out_of_band_bounced_recipients": "NotRequired[int | None]",
+        "out_of_band_bounce_events": "NotRequired[int | None]",
+        "complained": "NotRequired[int | None]",
+        "unsubscribed": "NotRequired[int | None]",
+        "human_opens": "NotRequired[int | None]",
+        "human_opens_events": "NotRequired[int | None]",
+        "human_clicks": "NotRequired[int | None]",
+        "human_clicks_events": "NotRequired[int | None]",
+        "machine_opens": "NotRequired[int | None]",
+        "machine_opens_events": "NotRequired[int | None]",
+        "machine_clicks": "NotRequired[int | None]",
+        "machine_clicks_events": "NotRequired[int | None]",
+        "privacy_opens": "NotRequired[int | None]",
+        "privacy_opens_events": "NotRequired[int | None]",
+        "privacy_clicks": "NotRequired[int | None]",
+        "privacy_clicks_events": "NotRequired[int | None]",
+        "bot_opens": "NotRequired[int | None]",
+        "bot_opens_events": "NotRequired[int | None]",
+        "bot_clicks": "NotRequired[int | None]",
+        "bot_clicks_events": "NotRequired[int | None]",
+        "scanner_opens": "NotRequired[int | None]",
+        "scanner_opens_events": "NotRequired[int | None]",
+        "scanner_clicks": "NotRequired[int | None]",
+        "scanner_clicks_events": "NotRequired[int | None]",
+        "observed_opens": "NotRequired[int | None]",
+        "observed_opens_events": "NotRequired[int | None]",
+        "observed_clicks": "NotRequired[int | None]",
+        "observed_clicks_events": "NotRequired[int | None]",
+        "delivery_rate": "NotRequired[float | None]",
+        "effective_delivery_rate": "NotRequired[float | None]",
+        "bounce_rate": "NotRequired[float | None]",
+        "deferral_rate": "NotRequired[float | None]",
+        "complaint_rate": "NotRequired[float | None]",
+        "human_open_rate": "NotRequired[float | None]",
+        "human_click_rate": "NotRequired[float | None]",
+        "processing_latency_p50_ms": "NotRequired[float | None]",
+        "processing_latency_p95_ms": "NotRequired[float | None]",
+        "processing_latency_p99_ms": "NotRequired[float | None]",
+        "processing_latency_samples": "NotRequired[int | None]",
+        "delivery_latency_p50_ms": "NotRequired[float | None]",
+        "delivery_latency_p95_ms": "NotRequired[float | None]",
+        "delivery_latency_p99_ms": "NotRequired[float | None]",
+        "delivery_latency_samples": "NotRequired[int | None]",
+        "total_latency_p50_ms": "NotRequired[float | None]",
+        "total_latency_p95_ms": "NotRequired[float | None]",
+        "total_latency_p99_ms": "NotRequired[float | None]",
+        "total_latency_samples": "NotRequired[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryRateBasesDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryRateBasesDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryRateBasesEffectiveDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryRateBasesEffectiveDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryRateBasesBounceRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryRateBasesBounceRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryRateBasesDeferralRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryRateBasesDeferralRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryRateBasesComplaintRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryRateBasesComplaintRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryRateBasesHumanOpenRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryRateBasesHumanOpenRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryRateBasesHumanClickRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryRateBasesHumanClickRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryRateBases = TypedDict(
+    "AnalyticsResponsePayloadSummaryRateBases",
+    {
+        "delivery_rate": "NotRequired[AnalyticsResponsePayloadSummaryRateBasesDeliveryRate]",
+        "effective_delivery_rate": "NotRequired[AnalyticsResponsePayloadSummaryRateBasesEffectiveDeliveryRate]",
+        "bounce_rate": "NotRequired[AnalyticsResponsePayloadSummaryRateBasesBounceRate]",
+        "deferral_rate": "NotRequired[AnalyticsResponsePayloadSummaryRateBasesDeferralRate]",
+        "complaint_rate": "NotRequired[AnalyticsResponsePayloadSummaryRateBasesComplaintRate]",
+        "human_open_rate": "NotRequired[AnalyticsResponsePayloadSummaryRateBasesHumanOpenRate]",
+        "human_click_rate": "NotRequired[AnalyticsResponsePayloadSummaryRateBasesHumanClickRate]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryPreviousMetrics = TypedDict(
+    "AnalyticsResponsePayloadSummaryPreviousMetrics",
+    {
+        "accepted": "NotRequired[int | None]",
+        "processed": "NotRequired[int | None]",
+        "suppressed": "NotRequired[int | None]",
+        "policy_rejected": "NotRequired[int | None]",
+        "application_failed": "NotRequired[int | None]",
+        "mta_accepted": "NotRequired[int | None]",
+        "canceled": "NotRequired[int | None]",
+        "messages": "NotRequired[int | None]",
+        "delivered": "NotRequired[int | None]",
+        "bounced": "NotRequired[int | None]",
+        "soft_bounced": "NotRequired[int | None]",
+        "administratively_bounced": "NotRequired[int | None]",
+        "deferred_recipients": "NotRequired[int | None]",
+        "deferred_events": "NotRequired[int | None]",
+        "delivery_attempts": "NotRequired[int | None]",
+        "attempted_recipients": "NotRequired[int | None]",
+        "transport_outcome_recipients": "NotRequired[int | None]",
+        "effective_delivered": "NotRequired[int | None]",
+        "open_tracked_delivered": "NotRequired[int | None]",
+        "click_tracked_delivered": "NotRequired[int | None]",
+        "out_of_band_bounced_recipients": "NotRequired[int | None]",
+        "out_of_band_bounce_events": "NotRequired[int | None]",
+        "complained": "NotRequired[int | None]",
+        "unsubscribed": "NotRequired[int | None]",
+        "human_opens": "NotRequired[int | None]",
+        "human_opens_events": "NotRequired[int | None]",
+        "human_clicks": "NotRequired[int | None]",
+        "human_clicks_events": "NotRequired[int | None]",
+        "machine_opens": "NotRequired[int | None]",
+        "machine_opens_events": "NotRequired[int | None]",
+        "machine_clicks": "NotRequired[int | None]",
+        "machine_clicks_events": "NotRequired[int | None]",
+        "privacy_opens": "NotRequired[int | None]",
+        "privacy_opens_events": "NotRequired[int | None]",
+        "privacy_clicks": "NotRequired[int | None]",
+        "privacy_clicks_events": "NotRequired[int | None]",
+        "bot_opens": "NotRequired[int | None]",
+        "bot_opens_events": "NotRequired[int | None]",
+        "bot_clicks": "NotRequired[int | None]",
+        "bot_clicks_events": "NotRequired[int | None]",
+        "scanner_opens": "NotRequired[int | None]",
+        "scanner_opens_events": "NotRequired[int | None]",
+        "scanner_clicks": "NotRequired[int | None]",
+        "scanner_clicks_events": "NotRequired[int | None]",
+        "observed_opens": "NotRequired[int | None]",
+        "observed_opens_events": "NotRequired[int | None]",
+        "observed_clicks": "NotRequired[int | None]",
+        "observed_clicks_events": "NotRequired[int | None]",
+        "delivery_rate": "NotRequired[float | None]",
+        "effective_delivery_rate": "NotRequired[float | None]",
+        "bounce_rate": "NotRequired[float | None]",
+        "deferral_rate": "NotRequired[float | None]",
+        "complaint_rate": "NotRequired[float | None]",
+        "human_open_rate": "NotRequired[float | None]",
+        "human_click_rate": "NotRequired[float | None]",
+        "processing_latency_p50_ms": "NotRequired[float | None]",
+        "processing_latency_p95_ms": "NotRequired[float | None]",
+        "processing_latency_p99_ms": "NotRequired[float | None]",
+        "processing_latency_samples": "NotRequired[int | None]",
+        "delivery_latency_p50_ms": "NotRequired[float | None]",
+        "delivery_latency_p95_ms": "NotRequired[float | None]",
+        "delivery_latency_p99_ms": "NotRequired[float | None]",
+        "delivery_latency_samples": "NotRequired[int | None]",
+        "total_latency_p50_ms": "NotRequired[float | None]",
+        "total_latency_p95_ms": "NotRequired[float | None]",
+        "total_latency_p99_ms": "NotRequired[float | None]",
+        "total_latency_samples": "NotRequired[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryPreviousRateBasesDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryPreviousRateBasesDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryPreviousRateBasesEffectiveDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryPreviousRateBasesEffectiveDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryPreviousRateBasesBounceRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryPreviousRateBasesBounceRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryPreviousRateBasesDeferralRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryPreviousRateBasesDeferralRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryPreviousRateBasesComplaintRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryPreviousRateBasesComplaintRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryPreviousRateBasesHumanOpenRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryPreviousRateBasesHumanOpenRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryPreviousRateBasesHumanClickRate = TypedDict(
+    "AnalyticsResponsePayloadSummaryPreviousRateBasesHumanClickRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryPreviousRateBases = TypedDict(
+    "AnalyticsResponsePayloadSummaryPreviousRateBases",
+    {
+        "delivery_rate": "NotRequired[AnalyticsResponsePayloadSummaryPreviousRateBasesDeliveryRate]",
+        "effective_delivery_rate": "NotRequired[AnalyticsResponsePayloadSummaryPreviousRateBasesEffectiveDeliveryRate]",
+        "bounce_rate": "NotRequired[AnalyticsResponsePayloadSummaryPreviousRateBasesBounceRate]",
+        "deferral_rate": "NotRequired[AnalyticsResponsePayloadSummaryPreviousRateBasesDeferralRate]",
+        "complaint_rate": "NotRequired[AnalyticsResponsePayloadSummaryPreviousRateBasesComplaintRate]",
+        "human_open_rate": "NotRequired[AnalyticsResponsePayloadSummaryPreviousRateBasesHumanOpenRate]",
+        "human_click_rate": "NotRequired[AnalyticsResponsePayloadSummaryPreviousRateBasesHumanClickRate]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummaryPrevious = TypedDict(
+    "AnalyticsResponsePayloadSummaryPrevious",
+    {
+        "metrics": "Required[AnalyticsResponsePayloadSummaryPreviousMetrics]",
+        "rate_bases": "Required[AnalyticsResponsePayloadSummaryPreviousRateBases]",
+    },
+)
+
+
+AnalyticsResponsePayloadSummary = TypedDict(
+    "AnalyticsResponsePayloadSummary",
+    {
+        "metrics": "NotRequired[AnalyticsResponsePayloadSummaryMetrics]",
+        "rate_bases": "NotRequired[AnalyticsResponsePayloadSummaryRateBases]",
+        "previous": "NotRequired[AnalyticsResponsePayloadSummaryPrevious]",
+        "change": "NotRequired[dict[str, dict[str, Any]]]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemMetrics = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemMetrics",
+    {
+        "accepted": "NotRequired[int | None]",
+        "processed": "NotRequired[int | None]",
+        "suppressed": "NotRequired[int | None]",
+        "policy_rejected": "NotRequired[int | None]",
+        "application_failed": "NotRequired[int | None]",
+        "mta_accepted": "NotRequired[int | None]",
+        "canceled": "NotRequired[int | None]",
+        "messages": "NotRequired[int | None]",
+        "delivered": "NotRequired[int | None]",
+        "bounced": "NotRequired[int | None]",
+        "soft_bounced": "NotRequired[int | None]",
+        "administratively_bounced": "NotRequired[int | None]",
+        "deferred_recipients": "NotRequired[int | None]",
+        "deferred_events": "NotRequired[int | None]",
+        "delivery_attempts": "NotRequired[int | None]",
+        "attempted_recipients": "NotRequired[int | None]",
+        "transport_outcome_recipients": "NotRequired[int | None]",
+        "effective_delivered": "NotRequired[int | None]",
+        "open_tracked_delivered": "NotRequired[int | None]",
+        "click_tracked_delivered": "NotRequired[int | None]",
+        "out_of_band_bounced_recipients": "NotRequired[int | None]",
+        "out_of_band_bounce_events": "NotRequired[int | None]",
+        "complained": "NotRequired[int | None]",
+        "unsubscribed": "NotRequired[int | None]",
+        "human_opens": "NotRequired[int | None]",
+        "human_opens_events": "NotRequired[int | None]",
+        "human_clicks": "NotRequired[int | None]",
+        "human_clicks_events": "NotRequired[int | None]",
+        "machine_opens": "NotRequired[int | None]",
+        "machine_opens_events": "NotRequired[int | None]",
+        "machine_clicks": "NotRequired[int | None]",
+        "machine_clicks_events": "NotRequired[int | None]",
+        "privacy_opens": "NotRequired[int | None]",
+        "privacy_opens_events": "NotRequired[int | None]",
+        "privacy_clicks": "NotRequired[int | None]",
+        "privacy_clicks_events": "NotRequired[int | None]",
+        "bot_opens": "NotRequired[int | None]",
+        "bot_opens_events": "NotRequired[int | None]",
+        "bot_clicks": "NotRequired[int | None]",
+        "bot_clicks_events": "NotRequired[int | None]",
+        "scanner_opens": "NotRequired[int | None]",
+        "scanner_opens_events": "NotRequired[int | None]",
+        "scanner_clicks": "NotRequired[int | None]",
+        "scanner_clicks_events": "NotRequired[int | None]",
+        "observed_opens": "NotRequired[int | None]",
+        "observed_opens_events": "NotRequired[int | None]",
+        "observed_clicks": "NotRequired[int | None]",
+        "observed_clicks_events": "NotRequired[int | None]",
+        "delivery_rate": "NotRequired[float | None]",
+        "effective_delivery_rate": "NotRequired[float | None]",
+        "bounce_rate": "NotRequired[float | None]",
+        "deferral_rate": "NotRequired[float | None]",
+        "complaint_rate": "NotRequired[float | None]",
+        "human_open_rate": "NotRequired[float | None]",
+        "human_click_rate": "NotRequired[float | None]",
+        "processing_latency_p50_ms": "NotRequired[float | None]",
+        "processing_latency_p95_ms": "NotRequired[float | None]",
+        "processing_latency_p99_ms": "NotRequired[float | None]",
+        "processing_latency_samples": "NotRequired[int | None]",
+        "delivery_latency_p50_ms": "NotRequired[float | None]",
+        "delivery_latency_p95_ms": "NotRequired[float | None]",
+        "delivery_latency_p99_ms": "NotRequired[float | None]",
+        "delivery_latency_samples": "NotRequired[int | None]",
+        "total_latency_p50_ms": "NotRequired[float | None]",
+        "total_latency_p95_ms": "NotRequired[float | None]",
+        "total_latency_p99_ms": "NotRequired[float | None]",
+        "total_latency_samples": "NotRequired[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemRateBasesDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemRateBasesDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemRateBasesEffectiveDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemRateBasesEffectiveDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemRateBasesBounceRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemRateBasesBounceRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemRateBasesDeferralRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemRateBasesDeferralRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemRateBasesComplaintRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemRateBasesComplaintRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemRateBasesHumanOpenRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemRateBasesHumanOpenRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemRateBasesHumanClickRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemRateBasesHumanClickRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemRateBases = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemRateBases",
+    {
+        "delivery_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemRateBasesDeliveryRate]",
+        "effective_delivery_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemRateBasesEffectiveDeliveryRate]",
+        "bounce_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemRateBasesBounceRate]",
+        "deferral_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemRateBasesDeferralRate]",
+        "complaint_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemRateBasesComplaintRate]",
+        "human_open_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemRateBasesHumanOpenRate]",
+        "human_click_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemRateBasesHumanClickRate]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemPreviousMetrics = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemPreviousMetrics",
+    {
+        "accepted": "NotRequired[int | None]",
+        "processed": "NotRequired[int | None]",
+        "suppressed": "NotRequired[int | None]",
+        "policy_rejected": "NotRequired[int | None]",
+        "application_failed": "NotRequired[int | None]",
+        "mta_accepted": "NotRequired[int | None]",
+        "canceled": "NotRequired[int | None]",
+        "messages": "NotRequired[int | None]",
+        "delivered": "NotRequired[int | None]",
+        "bounced": "NotRequired[int | None]",
+        "soft_bounced": "NotRequired[int | None]",
+        "administratively_bounced": "NotRequired[int | None]",
+        "deferred_recipients": "NotRequired[int | None]",
+        "deferred_events": "NotRequired[int | None]",
+        "delivery_attempts": "NotRequired[int | None]",
+        "attempted_recipients": "NotRequired[int | None]",
+        "transport_outcome_recipients": "NotRequired[int | None]",
+        "effective_delivered": "NotRequired[int | None]",
+        "open_tracked_delivered": "NotRequired[int | None]",
+        "click_tracked_delivered": "NotRequired[int | None]",
+        "out_of_band_bounced_recipients": "NotRequired[int | None]",
+        "out_of_band_bounce_events": "NotRequired[int | None]",
+        "complained": "NotRequired[int | None]",
+        "unsubscribed": "NotRequired[int | None]",
+        "human_opens": "NotRequired[int | None]",
+        "human_opens_events": "NotRequired[int | None]",
+        "human_clicks": "NotRequired[int | None]",
+        "human_clicks_events": "NotRequired[int | None]",
+        "machine_opens": "NotRequired[int | None]",
+        "machine_opens_events": "NotRequired[int | None]",
+        "machine_clicks": "NotRequired[int | None]",
+        "machine_clicks_events": "NotRequired[int | None]",
+        "privacy_opens": "NotRequired[int | None]",
+        "privacy_opens_events": "NotRequired[int | None]",
+        "privacy_clicks": "NotRequired[int | None]",
+        "privacy_clicks_events": "NotRequired[int | None]",
+        "bot_opens": "NotRequired[int | None]",
+        "bot_opens_events": "NotRequired[int | None]",
+        "bot_clicks": "NotRequired[int | None]",
+        "bot_clicks_events": "NotRequired[int | None]",
+        "scanner_opens": "NotRequired[int | None]",
+        "scanner_opens_events": "NotRequired[int | None]",
+        "scanner_clicks": "NotRequired[int | None]",
+        "scanner_clicks_events": "NotRequired[int | None]",
+        "observed_opens": "NotRequired[int | None]",
+        "observed_opens_events": "NotRequired[int | None]",
+        "observed_clicks": "NotRequired[int | None]",
+        "observed_clicks_events": "NotRequired[int | None]",
+        "delivery_rate": "NotRequired[float | None]",
+        "effective_delivery_rate": "NotRequired[float | None]",
+        "bounce_rate": "NotRequired[float | None]",
+        "deferral_rate": "NotRequired[float | None]",
+        "complaint_rate": "NotRequired[float | None]",
+        "human_open_rate": "NotRequired[float | None]",
+        "human_click_rate": "NotRequired[float | None]",
+        "processing_latency_p50_ms": "NotRequired[float | None]",
+        "processing_latency_p95_ms": "NotRequired[float | None]",
+        "processing_latency_p99_ms": "NotRequired[float | None]",
+        "processing_latency_samples": "NotRequired[int | None]",
+        "delivery_latency_p50_ms": "NotRequired[float | None]",
+        "delivery_latency_p95_ms": "NotRequired[float | None]",
+        "delivery_latency_p99_ms": "NotRequired[float | None]",
+        "delivery_latency_samples": "NotRequired[int | None]",
+        "total_latency_p50_ms": "NotRequired[float | None]",
+        "total_latency_p95_ms": "NotRequired[float | None]",
+        "total_latency_p99_ms": "NotRequired[float | None]",
+        "total_latency_samples": "NotRequired[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesEffectiveDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesEffectiveDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesBounceRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesBounceRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesDeferralRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesDeferralRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesComplaintRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesComplaintRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesHumanOpenRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesHumanOpenRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesHumanClickRate = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesHumanClickRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemPreviousRateBases = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemPreviousRateBases",
+    {
+        "delivery_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesDeliveryRate]",
+        "effective_delivery_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesEffectiveDeliveryRate]",
+        "bounce_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesBounceRate]",
+        "deferral_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesDeferralRate]",
+        "complaint_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesComplaintRate]",
+        "human_open_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesHumanOpenRate]",
+        "human_click_rate": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemPreviousRateBasesHumanClickRate]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItemPrevious = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItemPrevious",
+    {
+        "metrics": "Required[AnalyticsResponsePayloadTimeSeriesItemPreviousMetrics]",
+        "rate_bases": "Required[AnalyticsResponsePayloadTimeSeriesItemPreviousRateBases]",
+    },
+)
+
+
+AnalyticsResponsePayloadTimeSeriesItem = TypedDict(
+    "AnalyticsResponsePayloadTimeSeriesItem",
+    {
+        "metrics": "Required[AnalyticsResponsePayloadTimeSeriesItemMetrics]",
+        "rate_bases": "Required[AnalyticsResponsePayloadTimeSeriesItemRateBases]",
+        "previous": "NotRequired[AnalyticsResponsePayloadTimeSeriesItemPrevious]",
+        "change": "NotRequired[dict[str, dict[str, Any]]]",
+        "from": "Required[str]",
+        "to": "Required[str]",
+        "available": "Required[bool]",
+        "partial": "Required[bool]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemMetrics = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemMetrics",
+    {
+        "accepted": "NotRequired[int | None]",
+        "processed": "NotRequired[int | None]",
+        "suppressed": "NotRequired[int | None]",
+        "policy_rejected": "NotRequired[int | None]",
+        "application_failed": "NotRequired[int | None]",
+        "mta_accepted": "NotRequired[int | None]",
+        "canceled": "NotRequired[int | None]",
+        "messages": "NotRequired[int | None]",
+        "delivered": "NotRequired[int | None]",
+        "bounced": "NotRequired[int | None]",
+        "soft_bounced": "NotRequired[int | None]",
+        "administratively_bounced": "NotRequired[int | None]",
+        "deferred_recipients": "NotRequired[int | None]",
+        "deferred_events": "NotRequired[int | None]",
+        "delivery_attempts": "NotRequired[int | None]",
+        "attempted_recipients": "NotRequired[int | None]",
+        "transport_outcome_recipients": "NotRequired[int | None]",
+        "effective_delivered": "NotRequired[int | None]",
+        "open_tracked_delivered": "NotRequired[int | None]",
+        "click_tracked_delivered": "NotRequired[int | None]",
+        "out_of_band_bounced_recipients": "NotRequired[int | None]",
+        "out_of_band_bounce_events": "NotRequired[int | None]",
+        "complained": "NotRequired[int | None]",
+        "unsubscribed": "NotRequired[int | None]",
+        "human_opens": "NotRequired[int | None]",
+        "human_opens_events": "NotRequired[int | None]",
+        "human_clicks": "NotRequired[int | None]",
+        "human_clicks_events": "NotRequired[int | None]",
+        "machine_opens": "NotRequired[int | None]",
+        "machine_opens_events": "NotRequired[int | None]",
+        "machine_clicks": "NotRequired[int | None]",
+        "machine_clicks_events": "NotRequired[int | None]",
+        "privacy_opens": "NotRequired[int | None]",
+        "privacy_opens_events": "NotRequired[int | None]",
+        "privacy_clicks": "NotRequired[int | None]",
+        "privacy_clicks_events": "NotRequired[int | None]",
+        "bot_opens": "NotRequired[int | None]",
+        "bot_opens_events": "NotRequired[int | None]",
+        "bot_clicks": "NotRequired[int | None]",
+        "bot_clicks_events": "NotRequired[int | None]",
+        "scanner_opens": "NotRequired[int | None]",
+        "scanner_opens_events": "NotRequired[int | None]",
+        "scanner_clicks": "NotRequired[int | None]",
+        "scanner_clicks_events": "NotRequired[int | None]",
+        "observed_opens": "NotRequired[int | None]",
+        "observed_opens_events": "NotRequired[int | None]",
+        "observed_clicks": "NotRequired[int | None]",
+        "observed_clicks_events": "NotRequired[int | None]",
+        "delivery_rate": "NotRequired[float | None]",
+        "effective_delivery_rate": "NotRequired[float | None]",
+        "bounce_rate": "NotRequired[float | None]",
+        "deferral_rate": "NotRequired[float | None]",
+        "complaint_rate": "NotRequired[float | None]",
+        "human_open_rate": "NotRequired[float | None]",
+        "human_click_rate": "NotRequired[float | None]",
+        "processing_latency_p50_ms": "NotRequired[float | None]",
+        "processing_latency_p95_ms": "NotRequired[float | None]",
+        "processing_latency_p99_ms": "NotRequired[float | None]",
+        "processing_latency_samples": "NotRequired[int | None]",
+        "delivery_latency_p50_ms": "NotRequired[float | None]",
+        "delivery_latency_p95_ms": "NotRequired[float | None]",
+        "delivery_latency_p99_ms": "NotRequired[float | None]",
+        "delivery_latency_samples": "NotRequired[int | None]",
+        "total_latency_p50_ms": "NotRequired[float | None]",
+        "total_latency_p95_ms": "NotRequired[float | None]",
+        "total_latency_p99_ms": "NotRequired[float | None]",
+        "total_latency_samples": "NotRequired[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemRateBasesDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemRateBasesDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemRateBasesEffectiveDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemRateBasesEffectiveDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemRateBasesBounceRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemRateBasesBounceRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemRateBasesDeferralRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemRateBasesDeferralRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemRateBasesComplaintRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemRateBasesComplaintRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemRateBasesHumanOpenRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemRateBasesHumanOpenRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemRateBasesHumanClickRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemRateBasesHumanClickRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemRateBases = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemRateBases",
+    {
+        "delivery_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemRateBasesDeliveryRate]",
+        "effective_delivery_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemRateBasesEffectiveDeliveryRate]",
+        "bounce_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemRateBasesBounceRate]",
+        "deferral_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemRateBasesDeferralRate]",
+        "complaint_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemRateBasesComplaintRate]",
+        "human_open_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemRateBasesHumanOpenRate]",
+        "human_click_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemRateBasesHumanClickRate]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemPreviousMetrics = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemPreviousMetrics",
+    {
+        "accepted": "NotRequired[int | None]",
+        "processed": "NotRequired[int | None]",
+        "suppressed": "NotRequired[int | None]",
+        "policy_rejected": "NotRequired[int | None]",
+        "application_failed": "NotRequired[int | None]",
+        "mta_accepted": "NotRequired[int | None]",
+        "canceled": "NotRequired[int | None]",
+        "messages": "NotRequired[int | None]",
+        "delivered": "NotRequired[int | None]",
+        "bounced": "NotRequired[int | None]",
+        "soft_bounced": "NotRequired[int | None]",
+        "administratively_bounced": "NotRequired[int | None]",
+        "deferred_recipients": "NotRequired[int | None]",
+        "deferred_events": "NotRequired[int | None]",
+        "delivery_attempts": "NotRequired[int | None]",
+        "attempted_recipients": "NotRequired[int | None]",
+        "transport_outcome_recipients": "NotRequired[int | None]",
+        "effective_delivered": "NotRequired[int | None]",
+        "open_tracked_delivered": "NotRequired[int | None]",
+        "click_tracked_delivered": "NotRequired[int | None]",
+        "out_of_band_bounced_recipients": "NotRequired[int | None]",
+        "out_of_band_bounce_events": "NotRequired[int | None]",
+        "complained": "NotRequired[int | None]",
+        "unsubscribed": "NotRequired[int | None]",
+        "human_opens": "NotRequired[int | None]",
+        "human_opens_events": "NotRequired[int | None]",
+        "human_clicks": "NotRequired[int | None]",
+        "human_clicks_events": "NotRequired[int | None]",
+        "machine_opens": "NotRequired[int | None]",
+        "machine_opens_events": "NotRequired[int | None]",
+        "machine_clicks": "NotRequired[int | None]",
+        "machine_clicks_events": "NotRequired[int | None]",
+        "privacy_opens": "NotRequired[int | None]",
+        "privacy_opens_events": "NotRequired[int | None]",
+        "privacy_clicks": "NotRequired[int | None]",
+        "privacy_clicks_events": "NotRequired[int | None]",
+        "bot_opens": "NotRequired[int | None]",
+        "bot_opens_events": "NotRequired[int | None]",
+        "bot_clicks": "NotRequired[int | None]",
+        "bot_clicks_events": "NotRequired[int | None]",
+        "scanner_opens": "NotRequired[int | None]",
+        "scanner_opens_events": "NotRequired[int | None]",
+        "scanner_clicks": "NotRequired[int | None]",
+        "scanner_clicks_events": "NotRequired[int | None]",
+        "observed_opens": "NotRequired[int | None]",
+        "observed_opens_events": "NotRequired[int | None]",
+        "observed_clicks": "NotRequired[int | None]",
+        "observed_clicks_events": "NotRequired[int | None]",
+        "delivery_rate": "NotRequired[float | None]",
+        "effective_delivery_rate": "NotRequired[float | None]",
+        "bounce_rate": "NotRequired[float | None]",
+        "deferral_rate": "NotRequired[float | None]",
+        "complaint_rate": "NotRequired[float | None]",
+        "human_open_rate": "NotRequired[float | None]",
+        "human_click_rate": "NotRequired[float | None]",
+        "processing_latency_p50_ms": "NotRequired[float | None]",
+        "processing_latency_p95_ms": "NotRequired[float | None]",
+        "processing_latency_p99_ms": "NotRequired[float | None]",
+        "processing_latency_samples": "NotRequired[int | None]",
+        "delivery_latency_p50_ms": "NotRequired[float | None]",
+        "delivery_latency_p95_ms": "NotRequired[float | None]",
+        "delivery_latency_p99_ms": "NotRequired[float | None]",
+        "delivery_latency_samples": "NotRequired[int | None]",
+        "total_latency_p50_ms": "NotRequired[float | None]",
+        "total_latency_p95_ms": "NotRequired[float | None]",
+        "total_latency_p99_ms": "NotRequired[float | None]",
+        "total_latency_samples": "NotRequired[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemPreviousRateBasesDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemPreviousRateBasesDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemPreviousRateBasesEffectiveDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemPreviousRateBasesEffectiveDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemPreviousRateBasesBounceRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemPreviousRateBasesBounceRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemPreviousRateBasesDeferralRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemPreviousRateBasesDeferralRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemPreviousRateBasesComplaintRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemPreviousRateBasesComplaintRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemPreviousRateBasesHumanOpenRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemPreviousRateBasesHumanOpenRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemPreviousRateBasesHumanClickRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemPreviousRateBasesHumanClickRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemPreviousRateBases = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemPreviousRateBases",
+    {
+        "delivery_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemPreviousRateBasesDeliveryRate]",
+        "effective_delivery_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemPreviousRateBasesEffectiveDeliveryRate]",
+        "bounce_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemPreviousRateBasesBounceRate]",
+        "deferral_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemPreviousRateBasesDeferralRate]",
+        "complaint_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemPreviousRateBasesComplaintRate]",
+        "human_open_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemPreviousRateBasesHumanOpenRate]",
+        "human_click_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemPreviousRateBasesHumanClickRate]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemPrevious = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemPrevious",
+    {
+        "metrics": "Required[AnalyticsResponsePayloadBreakdownItemPreviousMetrics]",
+        "rate_bases": "Required[AnalyticsResponsePayloadBreakdownItemPreviousRateBases]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemMetrics = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemMetrics",
+    {
+        "accepted": "NotRequired[int | None]",
+        "processed": "NotRequired[int | None]",
+        "suppressed": "NotRequired[int | None]",
+        "policy_rejected": "NotRequired[int | None]",
+        "application_failed": "NotRequired[int | None]",
+        "mta_accepted": "NotRequired[int | None]",
+        "canceled": "NotRequired[int | None]",
+        "messages": "NotRequired[int | None]",
+        "delivered": "NotRequired[int | None]",
+        "bounced": "NotRequired[int | None]",
+        "soft_bounced": "NotRequired[int | None]",
+        "administratively_bounced": "NotRequired[int | None]",
+        "deferred_recipients": "NotRequired[int | None]",
+        "deferred_events": "NotRequired[int | None]",
+        "delivery_attempts": "NotRequired[int | None]",
+        "attempted_recipients": "NotRequired[int | None]",
+        "transport_outcome_recipients": "NotRequired[int | None]",
+        "effective_delivered": "NotRequired[int | None]",
+        "open_tracked_delivered": "NotRequired[int | None]",
+        "click_tracked_delivered": "NotRequired[int | None]",
+        "out_of_band_bounced_recipients": "NotRequired[int | None]",
+        "out_of_band_bounce_events": "NotRequired[int | None]",
+        "complained": "NotRequired[int | None]",
+        "unsubscribed": "NotRequired[int | None]",
+        "human_opens": "NotRequired[int | None]",
+        "human_opens_events": "NotRequired[int | None]",
+        "human_clicks": "NotRequired[int | None]",
+        "human_clicks_events": "NotRequired[int | None]",
+        "machine_opens": "NotRequired[int | None]",
+        "machine_opens_events": "NotRequired[int | None]",
+        "machine_clicks": "NotRequired[int | None]",
+        "machine_clicks_events": "NotRequired[int | None]",
+        "privacy_opens": "NotRequired[int | None]",
+        "privacy_opens_events": "NotRequired[int | None]",
+        "privacy_clicks": "NotRequired[int | None]",
+        "privacy_clicks_events": "NotRequired[int | None]",
+        "bot_opens": "NotRequired[int | None]",
+        "bot_opens_events": "NotRequired[int | None]",
+        "bot_clicks": "NotRequired[int | None]",
+        "bot_clicks_events": "NotRequired[int | None]",
+        "scanner_opens": "NotRequired[int | None]",
+        "scanner_opens_events": "NotRequired[int | None]",
+        "scanner_clicks": "NotRequired[int | None]",
+        "scanner_clicks_events": "NotRequired[int | None]",
+        "observed_opens": "NotRequired[int | None]",
+        "observed_opens_events": "NotRequired[int | None]",
+        "observed_clicks": "NotRequired[int | None]",
+        "observed_clicks_events": "NotRequired[int | None]",
+        "delivery_rate": "NotRequired[float | None]",
+        "effective_delivery_rate": "NotRequired[float | None]",
+        "bounce_rate": "NotRequired[float | None]",
+        "deferral_rate": "NotRequired[float | None]",
+        "complaint_rate": "NotRequired[float | None]",
+        "human_open_rate": "NotRequired[float | None]",
+        "human_click_rate": "NotRequired[float | None]",
+        "processing_latency_p50_ms": "NotRequired[float | None]",
+        "processing_latency_p95_ms": "NotRequired[float | None]",
+        "processing_latency_p99_ms": "NotRequired[float | None]",
+        "processing_latency_samples": "NotRequired[int | None]",
+        "delivery_latency_p50_ms": "NotRequired[float | None]",
+        "delivery_latency_p95_ms": "NotRequired[float | None]",
+        "delivery_latency_p99_ms": "NotRequired[float | None]",
+        "delivery_latency_samples": "NotRequired[int | None]",
+        "total_latency_p50_ms": "NotRequired[float | None]",
+        "total_latency_p95_ms": "NotRequired[float | None]",
+        "total_latency_p99_ms": "NotRequired[float | None]",
+        "total_latency_samples": "NotRequired[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesEffectiveDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesEffectiveDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesBounceRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesBounceRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesDeferralRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesDeferralRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesComplaintRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesComplaintRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesHumanOpenRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesHumanOpenRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesHumanClickRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesHumanClickRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemRateBases = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemRateBases",
+    {
+        "delivery_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesDeliveryRate]",
+        "effective_delivery_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesEffectiveDeliveryRate]",
+        "bounce_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesBounceRate]",
+        "deferral_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesDeferralRate]",
+        "complaint_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesComplaintRate]",
+        "human_open_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesHumanOpenRate]",
+        "human_click_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemRateBasesHumanClickRate]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemPreviousMetrics = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemPreviousMetrics",
+    {
+        "accepted": "NotRequired[int | None]",
+        "processed": "NotRequired[int | None]",
+        "suppressed": "NotRequired[int | None]",
+        "policy_rejected": "NotRequired[int | None]",
+        "application_failed": "NotRequired[int | None]",
+        "mta_accepted": "NotRequired[int | None]",
+        "canceled": "NotRequired[int | None]",
+        "messages": "NotRequired[int | None]",
+        "delivered": "NotRequired[int | None]",
+        "bounced": "NotRequired[int | None]",
+        "soft_bounced": "NotRequired[int | None]",
+        "administratively_bounced": "NotRequired[int | None]",
+        "deferred_recipients": "NotRequired[int | None]",
+        "deferred_events": "NotRequired[int | None]",
+        "delivery_attempts": "NotRequired[int | None]",
+        "attempted_recipients": "NotRequired[int | None]",
+        "transport_outcome_recipients": "NotRequired[int | None]",
+        "effective_delivered": "NotRequired[int | None]",
+        "open_tracked_delivered": "NotRequired[int | None]",
+        "click_tracked_delivered": "NotRequired[int | None]",
+        "out_of_band_bounced_recipients": "NotRequired[int | None]",
+        "out_of_band_bounce_events": "NotRequired[int | None]",
+        "complained": "NotRequired[int | None]",
+        "unsubscribed": "NotRequired[int | None]",
+        "human_opens": "NotRequired[int | None]",
+        "human_opens_events": "NotRequired[int | None]",
+        "human_clicks": "NotRequired[int | None]",
+        "human_clicks_events": "NotRequired[int | None]",
+        "machine_opens": "NotRequired[int | None]",
+        "machine_opens_events": "NotRequired[int | None]",
+        "machine_clicks": "NotRequired[int | None]",
+        "machine_clicks_events": "NotRequired[int | None]",
+        "privacy_opens": "NotRequired[int | None]",
+        "privacy_opens_events": "NotRequired[int | None]",
+        "privacy_clicks": "NotRequired[int | None]",
+        "privacy_clicks_events": "NotRequired[int | None]",
+        "bot_opens": "NotRequired[int | None]",
+        "bot_opens_events": "NotRequired[int | None]",
+        "bot_clicks": "NotRequired[int | None]",
+        "bot_clicks_events": "NotRequired[int | None]",
+        "scanner_opens": "NotRequired[int | None]",
+        "scanner_opens_events": "NotRequired[int | None]",
+        "scanner_clicks": "NotRequired[int | None]",
+        "scanner_clicks_events": "NotRequired[int | None]",
+        "observed_opens": "NotRequired[int | None]",
+        "observed_opens_events": "NotRequired[int | None]",
+        "observed_clicks": "NotRequired[int | None]",
+        "observed_clicks_events": "NotRequired[int | None]",
+        "delivery_rate": "NotRequired[float | None]",
+        "effective_delivery_rate": "NotRequired[float | None]",
+        "bounce_rate": "NotRequired[float | None]",
+        "deferral_rate": "NotRequired[float | None]",
+        "complaint_rate": "NotRequired[float | None]",
+        "human_open_rate": "NotRequired[float | None]",
+        "human_click_rate": "NotRequired[float | None]",
+        "processing_latency_p50_ms": "NotRequired[float | None]",
+        "processing_latency_p95_ms": "NotRequired[float | None]",
+        "processing_latency_p99_ms": "NotRequired[float | None]",
+        "processing_latency_samples": "NotRequired[int | None]",
+        "delivery_latency_p50_ms": "NotRequired[float | None]",
+        "delivery_latency_p95_ms": "NotRequired[float | None]",
+        "delivery_latency_p99_ms": "NotRequired[float | None]",
+        "delivery_latency_samples": "NotRequired[int | None]",
+        "total_latency_p50_ms": "NotRequired[float | None]",
+        "total_latency_p95_ms": "NotRequired[float | None]",
+        "total_latency_p99_ms": "NotRequired[float | None]",
+        "total_latency_samples": "NotRequired[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesEffectiveDeliveryRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesEffectiveDeliveryRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesBounceRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesBounceRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesDeferralRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesDeferralRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesComplaintRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesComplaintRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesHumanOpenRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesHumanOpenRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesHumanClickRate = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesHumanClickRate",
+    {
+        "numerator": "Required[int | None]",
+        "denominator": "Required[int | None]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBases = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBases",
+    {
+        "delivery_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesDeliveryRate]",
+        "effective_delivery_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesEffectiveDeliveryRate]",
+        "bounce_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesBounceRate]",
+        "deferral_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesDeferralRate]",
+        "complaint_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesComplaintRate]",
+        "human_open_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesHumanOpenRate]",
+        "human_click_rate": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBasesHumanClickRate]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItemPrevious = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItemPrevious",
+    {
+        "metrics": "Required[AnalyticsResponsePayloadBreakdownItemTrendItemPreviousMetrics]",
+        "rate_bases": "Required[AnalyticsResponsePayloadBreakdownItemTrendItemPreviousRateBases]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItemTrendItem = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItemTrendItem",
+    {
+        "metrics": "Required[AnalyticsResponsePayloadBreakdownItemTrendItemMetrics]",
+        "rate_bases": "Required[AnalyticsResponsePayloadBreakdownItemTrendItemRateBases]",
+        "previous": "NotRequired[AnalyticsResponsePayloadBreakdownItemTrendItemPrevious]",
+        "change": "NotRequired[dict[str, dict[str, Any]]]",
+        "from": "Required[str]",
+        "to": "Required[str]",
+        "available": "Required[bool]",
+        "partial": "Required[bool]",
+    },
+)
+
+
+AnalyticsResponsePayloadBreakdownItem = TypedDict(
+    "AnalyticsResponsePayloadBreakdownItem",
+    {
+        "metrics": "Required[AnalyticsResponsePayloadBreakdownItemMetrics]",
+        "rate_bases": "Required[AnalyticsResponsePayloadBreakdownItemRateBases]",
+        "previous": "NotRequired[AnalyticsResponsePayloadBreakdownItemPrevious]",
+        "change": "NotRequired[dict[str, dict[str, Any]]]",
+        "dimensions": "Required[dict[str, str | None]]",
+        "trend": "NotRequired[list[AnalyticsResponsePayloadBreakdownItemTrendItem]]",
+    },
+)
+
+
+AnalyticsResponsePayload = TypedDict(
+    "AnalyticsResponsePayload",
+    {
+        "summary": "NotRequired[AnalyticsResponsePayloadSummary]",
+        "time_series": "NotRequired[list[AnalyticsResponsePayloadTimeSeriesItem]]",
+        "breakdown": "NotRequired[list[AnalyticsResponsePayloadBreakdownItem]]",
+    },
+)

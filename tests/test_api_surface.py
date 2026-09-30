@@ -292,6 +292,12 @@ class TestFullApiEndpoints:
 
     def test_documented_operations_are_exposed(self) -> None:
         operations = [
+            (Lettermint.api("token"), "analytics"),
+            (Lettermint.api("token").projects, "retrieve_report_forwarding"),
+            (Lettermint.api("token").projects, "update_report_forwarding"),
+            (Lettermint.api("token").projects, "delete_report_forwarding"),
+            (Lettermint.api("token").projects, "verify_report_forwarding"),
+            (Lettermint.api("token").projects, "resend_report_forwarding_code"),
             (Lettermint.email("token"), "send"),
             (Lettermint.email("token"), "send_batch"),
             (Lettermint.email("token"), "ping"),
@@ -349,7 +355,7 @@ class TestFullApiEndpoints:
 
         missing = [method for endpoint, method in operations if not hasattr(endpoint, method)]
 
-        assert len(operations) == 53
+        assert len(operations) == 59
         assert missing == []
 
     def test_generated_types_match_current_team_schema(self) -> None:

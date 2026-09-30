@@ -62,6 +62,8 @@ class LettermintClient:
     def _handle_response(self, response: httpx.Response) -> Any:
         """Handle the HTTP response and raise appropriate exceptions."""
         if response.is_success:
+            if response.status_code == 204:
+                return None
             return response.json()
 
         try:
@@ -287,6 +289,8 @@ class AsyncLettermintClient:
     def _handle_response(self, response: httpx.Response) -> Any:
         """Handle the HTTP response and raise appropriate exceptions."""
         if response.is_success:
+            if response.status_code == 204:
+                return None
             return response.json()
 
         try:
