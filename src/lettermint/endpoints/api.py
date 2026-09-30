@@ -88,9 +88,9 @@ class MessagesEndpoint(Endpoint):
             ),
         )
 
-    def cancel(self, message_id: str) -> lm_types.RescheduleMessageResponse:
+    def cancel(self, message_id: str) -> lm_types.CancelScheduledMessageResponse:
         return cast(
-            lm_types.RescheduleMessageResponse,
+            lm_types.CancelScheduledMessageResponse,
             self._client.post(
                 self._path("/messages/{messageId}/cancel", messageId=message_id), data={}
             ),
@@ -364,32 +364,6 @@ class AsyncDomainsEndpoint(AsyncEndpoint):
             ),
         )
 
-    async def reschedule(
-        self, message_id: str, data: lm_types.RescheduleMessageRequest
-    ) -> lm_types.RescheduleMessageResponse:
-        return cast(
-            lm_types.RescheduleMessageResponse,
-            await self._client.patch(
-                self._path("/messages/{messageId}", messageId=message_id), data=data
-            ),
-        )
-
-    async def cancel(self, message_id: str) -> lm_types.RescheduleMessageResponse:
-        return cast(
-            lm_types.RescheduleMessageResponse,
-            await self._client.post(
-                self._path("/messages/{messageId}/cancel", messageId=message_id), data={}
-            ),
-        )
-
-    async def process(self, message_id: str) -> lm_types.ProcessInboundMessageResponse:
-        return cast(
-            lm_types.ProcessInboundMessageResponse,
-            await self._client.post(
-                self._path("/messages/{messageId}/process", messageId=message_id), data={}
-            ),
-        )
-
     async def delete(self, domain_id: str) -> lm_types.DomainDestroyResponse:
         return cast(
             lm_types.DomainDestroyResponse,
@@ -443,6 +417,32 @@ class AsyncMessagesEndpoint(AsyncEndpoint):
             lm_types.MessageShowResponse,
             await self._client.get(
                 self._path("/messages/{messageId}", messageId=message_id), params=query
+            ),
+        )
+
+    async def reschedule(
+        self, message_id: str, data: lm_types.RescheduleMessageRequest
+    ) -> lm_types.RescheduleMessageResponse:
+        return cast(
+            lm_types.RescheduleMessageResponse,
+            await self._client.patch(
+                self._path("/messages/{messageId}", messageId=message_id), data=data
+            ),
+        )
+
+    async def cancel(self, message_id: str) -> lm_types.CancelScheduledMessageResponse:
+        return cast(
+            lm_types.CancelScheduledMessageResponse,
+            await self._client.post(
+                self._path("/messages/{messageId}/cancel", messageId=message_id), data={}
+            ),
+        )
+
+    async def process(self, message_id: str) -> lm_types.ProcessInboundMessageResponse:
+        return cast(
+            lm_types.ProcessInboundMessageResponse,
+            await self._client.post(
+                self._path("/messages/{messageId}/process", messageId=message_id), data={}
             ),
         )
 

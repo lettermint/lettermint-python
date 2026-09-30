@@ -13,7 +13,13 @@ else:
     from typing_extensions import Self
 
 from ..message_tag import MessageTag, normalize_message_tags
-from ..types import SendBatchEmailResponse, SendBatchMailRequest, SendEmailResponse, TlsPolicy
+from ..types import (
+    SandboxResult,
+    SendBatchEmailResponse,
+    SendBatchMailRequest,
+    SendEmailResponse,
+    TlsPolicy,
+)
 from .endpoint import AsyncEndpoint, Endpoint
 
 if TYPE_CHECKING:
@@ -297,6 +303,11 @@ class EmailEndpoint(Endpoint):
         if len(names) != len(set(names)):
             raise ValueError("Message tag names must be unique and case-sensitive")
         self._payload["tags"] = [tag.to_dict() for tag in normalized]
+        return self
+
+    def sandbox_result(self, result: SandboxResult) -> Self:
+        """Select the simulated result for a Sandbox project."""
+        self._payload["sandbox_result"] = result
         return self
 
     def send(self) -> SendEmailResponse:
@@ -598,6 +609,11 @@ class AsyncEmailEndpoint(AsyncEndpoint):
         if len(names) != len(set(names)):
             raise ValueError("Message tag names must be unique and case-sensitive")
         self._payload["tags"] = [tag.to_dict() for tag in normalized]
+        return self
+
+    def sandbox_result(self, result: SandboxResult) -> Self:
+        """Select the simulated result for a Sandbox project."""
+        self._payload["sandbox_result"] = result
         return self
 
     def send(self) -> Coroutine[Any, Any, SendEmailResponse]:

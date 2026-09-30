@@ -25,6 +25,19 @@ MessageStatus: TypeAlias = Literal[
     "unsubscribed",
     "canceled",
 ]
+SandboxResult: TypeAlias = Literal[
+    "delivered",
+    "hard_bounced",
+    "soft_bounced",
+    "deferred",
+    "failed",
+    "suppressed",
+    "spam_complaint",
+    "auto_replied",
+    "opened",
+    "clicked",
+    "unsubscribed",
+]
 TlsPolicy: TypeAlias = Literal["opportunistic", "enforced"]
 SendMailRequest = TypedDict(
     "SendMailRequest",
@@ -45,10 +58,11 @@ SendMailRequest = TypedDict(
         "html": "NotRequired[str | None]",
         "text": "NotRequired[str | None]",
         "attachments": "NotRequired[list[dict[str, Any]]]",
+        "sandbox_result": "NotRequired[SandboxResult]",
     },
 )
 
-SendBatchMailRequest: TypeAlias = list[dict[str, Any]]
+SendBatchMailRequest: TypeAlias = list[SendMailRequest]
 AttachmentDelivery: TypeAlias = Literal["inline", "url"]
 BuiltInTeamRole: TypeAlias = Literal["owner", "admin", "member"]
 CursorPaginator = TypedDict(
@@ -63,7 +77,6 @@ CursorPaginator = TypedDict(
         "prev_page_url": "Required[str | None]",
     },
 )
-
 DkimMode: TypeAlias = Literal["legacy_txt", "managed_cname"]
 DnsRecordPurpose: TypeAlias = Literal[
     "return_path", "dmarc", "dkim_legacy", "dkim_primary", "dkim_secondary"
@@ -128,15 +141,16 @@ MessageAttachmentData = TypedDict(
     },
 )
 
+DeliveryMode: TypeAlias = Literal["live", "sandbox"]
 MessageRecipientData = TypedDict(
     "MessageRecipientData",
     {
         "email": "Required[str]",
         "name": "Required[str | None]",
+        "sandbox_result": "Required[SandboxResult | None]",
     },
 )
 
-MessageType: TypeAlias = Literal["inbound", "outbound"]
 SpamSymbol = TypedDict(
     "SpamSymbol",
     {
@@ -147,6 +161,7 @@ SpamSymbol = TypedDict(
     },
 )
 
+MessageType: TypeAlias = Literal["inbound", "outbound"]
 MessageData = TypedDict(
     "MessageData",
     {
@@ -170,6 +185,8 @@ MessageData = TypedDict(
         "spam_symbols": "NotRequired[list[SpamSymbol]]",
         "route_id": "Required[str]",
         "created_at": "Required[str]",
+        "delivery_mode": "Required[DeliveryMode]",
+        "sandbox_result": "Required[SandboxResult | None]",
     },
 )
 
@@ -230,6 +247,8 @@ MessageListData = TypedDict(
         "tags": "Required[list[dict[str, Any]]]",
         "status_changed_at": "Required[str | None]",
         "created_at": "Required[str]",
+        "delivery_mode": "Required[DeliveryMode]",
+        "sandbox_result": "Required[SandboxResult | None]",
     },
 )
 
@@ -276,6 +295,7 @@ RouteData = TypedDict(
         "route_type": "Required[RouteType]",
         "is_default": "Required[bool]",
         "inbound_address": "NotRequired[str | None]",
+        "inbound_mx_hostname": "NotRequired[str]",
         "inbound_domain": "NotRequired[str | None]",
         "inbound_domain_verified_at": "NotRequired[str | None]",
         "inbound_spam_threshold": "NotRequired[float | None]",
@@ -308,6 +328,7 @@ ProjectData = TypedDict(
         "last_28_days": "NotRequired[MessageStatsData | None]",
         "created_at": "Required[str]",
         "updated_at": "Required[str]",
+        "delivery_mode": "Required[DeliveryMode]",
     },
 )
 
@@ -374,6 +395,13 @@ RbacPermission: TypeAlias = Literal[
     "suppressions:add",
     "suppressions:remove",
 ]
+RescheduleMessageRequest = TypedDict(
+    "RescheduleMessageRequest",
+    {
+        "scheduled_at": "Required[str]",
+    },
+)
+
 RouteListData = TypedDict(
     "RouteListData",
     {
@@ -482,6 +510,7 @@ StoreProjectData = TypedDict(
         "smtp_enabled": "NotRequired[bool]",
         "initial_routes": "NotRequired[InitialRoutes]",
         "short_token": "NotRequired[bool]",
+        "delivery_mode": "NotRequired[DeliveryMode]",
     },
 )
 
@@ -495,7 +524,8 @@ StoreRouteData = TypedDict(
 )
 
 SuppressionReason: TypeAlias = Literal["spam_complaint", "hard_bounce", "unsubscribe", "manual"]
-SuppressionScope: TypeAlias = Literal["global", "team", "project", "route"]
+SuppressionScope: TypeAlias = Literal["team", "project", "route"]
+SuppressionAppliesTo: TypeAlias = Literal["all", "broadcast"]
 StoreSuppressionData = TypedDict(
     "StoreSuppressionData",
     {
@@ -505,6 +535,7 @@ StoreSuppressionData = TypedDict(
         "scope": "Required[SuppressionScope]",
         "route_id": "NotRequired[str | None]",
         "project_id": "NotRequired[str | None]",
+        "applies_to": "NotRequired[SuppressionAppliesTo | None]",
     },
 )
 
@@ -523,23 +554,32 @@ WebhookEvent: TypeAlias = Literal[
     "message.clicked",
     "message.inbound",
     "message.policy_rejected",
+    "message.scheduled",
+    "message.rescheduled",
+    "message.canceled",
+    "message.released",
     "suppression.added",
     "suppression.removed",
     "webhook.test",
 ]
+WebhookScope: TypeAlias = Literal["team", "project", "route"]
+WebhookDeliveryModeFilter: TypeAlias = Literal["live", "sandbox", "both"]
 StoreWebhookData = TypedDict(
     "StoreWebhookData",
     {
-        "route_id": "Required[str]",
         "name": "Required[str]",
         "url": "Required[str]",
         "events": "Required[list[WebhookEvent]]",
         "enabled": "NotRequired[bool | None]",
         "include_machine_events": "NotRequired[bool | None]",
+        "scope": "NotRequired[WebhookScope | None]",
+        "project_ids": "NotRequired[list[str]]",
+        "route_ids": "NotRequired[list[str]]",
+        "route_id": "NotRequired[str | None]",
+        "delivery_mode_filter": "NotRequired[WebhookDeliveryModeFilter | None]",
     },
 )
 
-SuppressionType: TypeAlias = Literal["email", "domain", "extension"]
 SuppressionSourceMessageData = TypedDict(
     "SuppressionSourceMessageData",
     {
@@ -550,6 +590,7 @@ SuppressionSourceMessageData = TypedDict(
     },
 )
 
+SuppressionType: TypeAlias = Literal["email", "domain", "extension"]
 SuppressedRecipientData = TypedDict(
     "SuppressedRecipientData",
     {
@@ -558,11 +599,11 @@ SuppressedRecipientData = TypedDict(
         "value": "Required[str]",
         "reason": "Required[SuppressionReason]",
         "scope": "Required[SuppressionScope]",
+        "applies_to": "Required[SuppressionAppliesTo]",
         "project_id": "Required[str | None]",
         "route_id": "Required[str | None]",
         "source_message": "NotRequired[SuppressionSourceMessageData | None]",
         "created_at": "Required[str]",
-        "updated_at": "Required[str]",
     },
 )
 
@@ -657,6 +698,7 @@ UpdateProjectData = TypedDict(
         "smtp_enabled": "NotRequired[bool | None]",
         "redact_email_content": "NotRequired[bool | None]",
         "default_route_id": "NotRequired[str | None]",
+        "delivery_mode": "NotRequired[DeliveryMode | None]",
     },
 )
 
@@ -715,6 +757,11 @@ UpdateWebhookData = TypedDict(
         "events": "NotRequired[list[WebhookEvent]]",
         "enabled": "NotRequired[bool]",
         "include_machine_events": "NotRequired[bool]",
+        "scope": "NotRequired[WebhookScope]",
+        "project_ids": "NotRequired[list[str]]",
+        "route_ids": "NotRequired[list[str]]",
+        "route_id": "NotRequired[str | None]",
+        "delivery_mode_filter": "NotRequired[WebhookDeliveryModeFilter]",
     },
 )
 
@@ -722,16 +769,19 @@ WebhookData = TypedDict(
     "WebhookData",
     {
         "id": "Required[str]",
-        "route_id": "Required[str]",
+        "scope": "Required[WebhookScope]",
+        "project_ids": "Required[list[str]]",
+        "route_ids": "Required[list[str]]",
+        "route_id": "Required[str | None]",
         "name": "Required[str]",
         "url": "Required[str]",
         "events": "Required[list[str]]",
         "enabled": "Required[bool]",
         "include_machine_events": "Required[bool]",
-        "secret": "NotRequired[str]",
         "last_called_at": "Required[str | None]",
         "created_at": "Required[str]",
         "updated_at": "Required[str]",
+        "delivery_mode_filter": "Required[WebhookDeliveryModeFilter]",
     },
 )
 
@@ -744,6 +794,9 @@ WebhookDeliveryData = TypedDict(
         "id": "Required[str]",
         "webhook_id": "Required[str]",
         "event_type": "Required[WebhookEvent]",
+        "source_scope": "Required[str | None]",
+        "source_project_id": "Required[str | None]",
+        "source_route_id": "Required[str | None]",
         "status": "Required[WebhookDeliveryStatus]",
         "attempt_number": "Required[int]",
         "http_status_code": "Required[int | None]",
@@ -754,6 +807,7 @@ WebhookDeliveryData = TypedDict(
         "error_message": "Required[str | None]",
         "delivered_at": "Required[str | None]",
         "timestamp": "Required[str]",
+        "sandbox": "Required[bool]",
     },
 )
 
@@ -763,6 +817,9 @@ WebhookDeliveryListData = TypedDict(
         "id": "Required[str]",
         "webhook_id": "Required[str]",
         "event_type": "Required[WebhookEvent]",
+        "source_scope": "Required[str | None]",
+        "source_project_id": "Required[str | None]",
+        "source_route_id": "Required[str | None]",
         "status": "Required[WebhookDeliveryStatus]",
         "attempt_number": "Required[int]",
         "http_status_code": "Required[int | None]",
@@ -776,14 +833,38 @@ WebhookListData = TypedDict(
     "WebhookListData",
     {
         "id": "Required[str]",
-        "route_id": "Required[str]",
+        "scope": "Required[WebhookScope]",
+        "project_ids": "Required[list[str]]",
+        "route_ids": "Required[list[str]]",
+        "route_id": "Required[str | None]",
         "name": "Required[str]",
         "url": "Required[str]",
-        "events": "Required[list[WebhookEvent]]",
+        "events": "Required[list[str]]",
         "enabled": "Required[bool]",
         "last_called_at": "Required[str | None]",
         "created_at": "Required[str]",
         "updated_at": "Required[str]",
+    },
+)
+
+WebhookSecretData = TypedDict(
+    "WebhookSecretData",
+    {
+        "id": "Required[str]",
+        "scope": "Required[WebhookScope]",
+        "project_ids": "Required[list[str]]",
+        "route_ids": "Required[list[str]]",
+        "route_id": "Required[str | None]",
+        "name": "Required[str]",
+        "url": "Required[str]",
+        "events": "Required[list[str]]",
+        "enabled": "Required[bool]",
+        "include_machine_events": "Required[bool]",
+        "secret": "Required[str]",
+        "last_called_at": "Required[str | None]",
+        "created_at": "Required[str]",
+        "updated_at": "Required[str]",
+        "delivery_mode_filter": "Required[WebhookDeliveryModeFilter]",
     },
 )
 
@@ -801,26 +882,15 @@ EmailStatus: TypeAlias = MessageStatus
 SendMailResponse = TypedDict(
     "SendMailResponse",
     {
-        "message_id": "Required[str]",
+        "message_id": "Required[str | None]",
         "status": "Required[MessageStatus]",
         "scheduled_at": "NotRequired[str]",
+        "sandbox": "NotRequired[Literal[True]]",
+        "sandbox_result": "NotRequired[SandboxResult]",
     },
 )
 
-RescheduleMessageRequest = TypedDict(
-    "RescheduleMessageRequest",
-    {"scheduled_at": "Required[str]"},
-)
-RescheduleMessageResponse = TypedDict(
-    "RescheduleMessageResponse",
-    {
-        "message_id": "Required[str]",
-        "status": "Required[MessageStatus | None]",
-        "scheduled_at": "Required[str | None]",
-    },
-)
-
-SendBatchMailResponse: TypeAlias = list[dict[str, Any]]
+SendBatchMailResponse: TypeAlias = list[SendMailResponse]
 PingResponse: TypeAlias = Literal[200]
 DomainIndexResponse = TypedDict(
     "DomainIndexResponse",
@@ -877,6 +947,25 @@ BlockedFileTypesResponse = TypedDict(
     },
 )
 
+RescheduleMessageResponse = TypedDict(
+    "RescheduleMessageResponse",
+    {
+        "message_id": "Required[str]",
+        "status": "Required[MessageStatus | None]",
+        "scheduled_at": "Required[str | None]",
+    },
+)
+
+MessageShowResponse: TypeAlias = MessageData
+CancelScheduledMessageResponse = TypedDict(
+    "CancelScheduledMessageResponse",
+    {
+        "message_id": "Required[str]",
+        "status": "Required[MessageStatus | None]",
+        "scheduled_at": "Required[str | None]",
+    },
+)
+
 MessageIndexResponse = TypedDict(
     "MessageIndexResponse",
     {
@@ -886,19 +975,19 @@ MessageIndexResponse = TypedDict(
     },
 )
 
-MessageShowResponse: TypeAlias = MessageData
-ProcessInboundMessageResponse = TypedDict(
-    "ProcessInboundMessageResponse",
-    {
-        "data": "Required[dict[str, str | int]]",
-    },
-)
 MessageEventsResponse = TypedDict(
     "MessageEventsResponse",
     {
         "data": "Required[list[MessageEventData]]",
         "links": "Required[list[str]]",
         "meta": "Required[dict[str, Any]]",
+    },
+)
+
+ProcessInboundMessageResponse = TypedDict(
+    "ProcessInboundMessageResponse",
+    {
+        "data": "Required[dict[str, Any]]",
     },
 )
 
@@ -1081,7 +1170,7 @@ WebhookStoreRequest: TypeAlias = StoreWebhookData
 WebhookStoreResponse = TypedDict(
     "WebhookStoreResponse",
     {
-        "data": "Required[WebhookData]",
+        "data": "Required[WebhookSecretData]",
         "message": "Required[Literal['Webhook created successfully. Please save the secret as it will not be shown again.']]",
     },
 )
@@ -1114,7 +1203,7 @@ WebhookTestResponse = TypedDict(
 WebhookRegenerateSecretResponse = TypedDict(
     "WebhookRegenerateSecretResponse",
     {
-        "data": "Required[WebhookData]",
+        "data": "Required[WebhookSecretData]",
         "message": "Required[Literal['Webhook secret regenerated successfully. Please update your integration.']]",
     },
 )

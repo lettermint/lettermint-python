@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import get_args
+from typing import get_args, get_type_hints
 
 import pytest
 import respx
@@ -183,11 +183,23 @@ class TestFullApiEndpoints:
         )
         cancel_route = respx.post("https://api.lettermint.co/v1/messages/message%2Fid/cancel").mock(
             return_value=Response(
-                200, json={"message_id": "message/id", "status": "canceled", "scheduled_at": None}
+                200,
+                json={"message_id": "message/id", "status": "canceled", "scheduled_at": None},
             )
         )
-        process_route = respx.post("https://api.lettermint.co/v1/messages/message%2Fid/process").mock(
-            return_value=Response(202, json={"data": {"message_id": "message/id", "status": "queued", "webhook_target_count": 1}})
+        process_route = respx.post(
+            "https://api.lettermint.co/v1/messages/message%2Fid/process"
+        ).mock(
+            return_value=Response(
+                202,
+                json={
+                    "data": {
+                        "message_id": "message/id",
+                        "status": "queued",
+                        "webhook_target_count": 1,
+                    }
+                },
+            )
         )
 
         with Lettermint.api("api-token") as api:
@@ -203,6 +215,53 @@ class TestFullApiEndpoints:
         assert json.loads(reschedule_route.calls.last.request.content) == {
             "scheduled_at": "2026-08-27T09:00:00Z"
         }
+        assert cancel_route.called
+        assert process_route.called
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_async_scheduled_message_endpoints(self) -> None:
+        reschedule_route = respx.patch("https://api.lettermint.co/v1/messages/message%2Fid").mock(
+            return_value=Response(
+                200,
+                json={
+                    "message_id": "message/id",
+                    "status": "scheduled",
+                    "scheduled_at": "2026-08-27T09:00:00Z",
+                },
+            )
+        )
+        cancel_route = respx.post("https://api.lettermint.co/v1/messages/message%2Fid/cancel").mock(
+            return_value=Response(
+                200,
+                json={"message_id": "message/id", "status": "canceled", "scheduled_at": None},
+            )
+        )
+        process_route = respx.post(
+            "https://api.lettermint.co/v1/messages/message%2Fid/process"
+        ).mock(
+            return_value=Response(
+                202,
+                json={
+                    "data": {
+                        "message_id": "message/id",
+                        "status": "queued",
+                        "webhook_target_count": 1,
+                    }
+                },
+            )
+        )
+
+        async with AsyncLettermint.api("api-token") as api:
+            assert (
+                await api.messages.reschedule(
+                    "message/id", {"scheduled_at": "2026-08-27T09:00:00Z"}
+                )
+            )["status"] == "scheduled"
+            assert (await api.messages.cancel("message/id"))["status"] == "canceled"
+            assert (await api.messages.process("message/id"))["data"]["status"] == "queued"
+
+        assert reschedule_route.called
         assert cancel_route.called
         assert process_route.called
 
@@ -290,15 +349,15 @@ class TestFullApiEndpoints:
 
         missing = [method for endpoint, method in operations if not hasattr(endpoint, method)]
 
+        assert len(operations) == 53
         assert missing == []
 
     def test_generated_types_match_current_team_schema(self) -> None:
-        assert "scheduled" in get_args(lm_types.MessageEventType)
+        assert "auto_replied" in get_args(lm_types.MessageEventType)
         assert "message.auto_replied" in get_args(lm_types.WebhookEvent)
         assert "admin" in get_args(lm_types.BuiltInTeamRole)
         assert "members:manage" in get_args(lm_types.RbacPermission)
-        assert "enforced" in get_args(lm_types.TlsPolicy)
-        assert "global" in get_args(lm_types.SuppressionScope)
+        assert "team" in get_args(lm_types.SuppressionScope)
 
         assert "short_token" in lm_types.StoreProjectData.__annotations__
         assert "redact_email_content" in lm_types.ProjectData.__annotations__
@@ -310,13 +369,34 @@ class TestFullApiEndpoints:
         assert "mime_types" in lm_types.BlockedFileTypesResponse.__annotations__
         assert "redact_email_content" in lm_types.UpdateRouteSettingsData.__annotations__
         assert "generate_plaintext_fallback" in lm_types.UpdateRouteSettingsData.__annotations__
-        assert "tls" in lm_types.UpdateRouteSettingsData.__annotations__
         assert "inbound_spam_threshold" in lm_types.UpdateRouteInboundSettingsData.__annotations__
         assert "included_volume" in lm_types.TeamData.__annotations__
         assert "assignable" in lm_types.TeamRoleData.__annotations__
         assert "role_id" in lm_types.UpdateTeamMemberAssignmentData.__annotations__
-        assert "dkim_mode" in lm_types.DomainData.__annotations__
-        assert "source_message" in lm_types.SuppressedRecipientData.__annotations__
-        assert "spam_score" in lm_types.MessageListData.__annotations__
-        assert "scheduled_at" in lm_types.SendMailRequest.__annotations__
         assert hasattr(lm_types, "RescheduleMessageRequest")
+        assert hasattr(lm_types, "RescheduleMessageResponse")
+        assert hasattr(lm_types, "CancelScheduledMessageResponse")
+        assert hasattr(lm_types, "ProcessInboundMessageResponse")
+        assert hasattr(lm_types, "CursorPaginator")
+        assert (
+            get_type_hints(type(Lettermint.api("token").messages).cancel)["return"]
+            is lm_types.CancelScheduledMessageResponse
+        )
+
+    def test_generated_types_include_sandbox_contracts(self) -> None:
+        assert set(get_args(lm_types.DeliveryMode)) == {"live", "sandbox"}
+        assert "clicked" in get_args(lm_types.SandboxResult)
+        assert set(get_args(lm_types.WebhookDeliveryModeFilter)) == {"live", "sandbox", "both"}
+
+        assert "sandbox_result" in lm_types.SendMailRequest.__annotations__
+        assert "sandbox" in lm_types.SendMailResponse.__annotations__
+        assert "sandbox_result" in lm_types.SendMailResponse.__annotations__
+        assert "delivery_mode" in lm_types.ProjectData.__annotations__
+        assert "delivery_mode" in lm_types.StoreProjectData.__annotations__
+        assert "delivery_mode" in lm_types.UpdateProjectData.__annotations__
+        assert "delivery_mode" in lm_types.MessageData.__annotations__
+        assert "sandbox_result" in lm_types.MessageData.__annotations__
+        assert "delivery_mode_filter" in lm_types.StoreWebhookData.__annotations__
+        assert "delivery_mode_filter" in lm_types.UpdateWebhookData.__annotations__
+        assert "delivery_mode_filter" in lm_types.WebhookData.__annotations__
+        assert "sandbox" in lm_types.WebhookDeliveryData.__annotations__
