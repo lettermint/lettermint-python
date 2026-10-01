@@ -52,6 +52,9 @@ class _AsyncEmailAccessor:
 
 
 class ApiClient:
+    def analytics(self, data: lm_types.AnalyticsRequest) -> lm_types.AnalyticsResponse:
+        return cast(lm_types.AnalyticsResponse, self._client.post("/analytics", data=data))
+
     """Synchronous client for the full Lettermint API."""
 
     def __init__(
@@ -96,6 +99,9 @@ class ApiClient:
 
 
 class AsyncApiClient:
+    async def analytics(self, data: lm_types.AnalyticsRequest) -> lm_types.AnalyticsResponse:
+        return cast(lm_types.AnalyticsResponse, await self._client.post("/analytics", data=data))
+
     """Asynchronous client for the full Lettermint API."""
 
     def __init__(
