@@ -411,6 +411,17 @@ class AsyncDomainsEndpoint(AsyncEndpoint):
             ),
         )
 
+    async def reschedule(
+        self, message_id: str, data: lm_types.RescheduleMessageRequest
+    ) -> lm_types.RescheduleMessageResponse:
+        return await AsyncMessagesEndpoint(self._client).reschedule(message_id, data)
+
+    async def cancel(self, message_id: str) -> lm_types.RescheduleMessageResponse:
+        return await AsyncMessagesEndpoint(self._client).cancel(message_id)
+
+    async def process(self, message_id: str) -> lm_types.ProcessInboundMessageResponse:
+        return await AsyncMessagesEndpoint(self._client).process(message_id)
+
     async def delete(self, domain_id: str) -> lm_types.DomainDestroyResponse:
         return cast(
             lm_types.DomainDestroyResponse,

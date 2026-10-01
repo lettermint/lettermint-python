@@ -220,7 +220,8 @@ class TestFullApiEndpoints:
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_async_scheduled_message_endpoints(self) -> None:
+    @pytest.mark.parametrize("endpoint_group", ["messages", "domains"])
+    async def test_async_scheduled_message_endpoints(self, endpoint_group: str) -> None:
         reschedule_route = respx.patch("https://api.lettermint.co/v1/messages/message%2Fid").mock(
             return_value=Response(
                 200,
@@ -253,17 +254,27 @@ class TestFullApiEndpoints:
         )
 
         async with AsyncLettermint.api("api-token") as api:
+            endpoint = getattr(api, endpoint_group)
             assert (
-                await api.messages.reschedule(
-                    "message/id", {"scheduled_at": "2026-08-27T09:00:00Z"}
-                )
+                await endpoint.reschedule("message/id", {"scheduled_at": "2026-08-27T09:00:00Z"})
             )["status"] == "scheduled"
-            assert (await api.messages.cancel("message/id"))["status"] == "canceled"
-            assert (await api.messages.process("message/id"))["data"]["status"] == "queued"
+            canceled: lm_types.RescheduleMessageResponse = await endpoint.cancel("message/id")
+            assert canceled["message_id"] == "message/id"
+            assert canceled["status"] == "canceled"
+            assert canceled["scheduled_at"] is None
+            assert (await endpoint.process("message/id"))["data"]["status"] == "queued"
 
         assert reschedule_route.called
         assert cancel_route.called
         assert process_route.called
+        assert json.loads(reschedule_route.calls.last.request.content) == {
+            "scheduled_at": "2026-08-27T09:00:00Z"
+        }
+        for route in (reschedule_route, cancel_route, process_route):
+            assert route.call_count == 1
+            assert route.calls.last.request.headers["authorization"] == "Bearer api-token"
+        assert json.loads(cancel_route.calls.last.request.content) == {}
+        assert json.loads(process_route.calls.last.request.content) == {}
 
     @respx.mock
     def test_team_role_and_member_assignment_endpoints(self) -> None:
