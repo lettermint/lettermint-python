@@ -296,6 +296,7 @@ RouteData = TypedDict(
         "is_default": "Required[bool]",
         "inbound_address": "NotRequired[str | None]",
         "inbound_mx_hostname": "NotRequired[str]",
+        "inbound_route_domain": "NotRequired[str | None]",
         "inbound_domain": "NotRequired[str | None]",
         "inbound_domain_verified_at": "NotRequired[str | None]",
         "inbound_spam_threshold": "NotRequired[float | None]",
