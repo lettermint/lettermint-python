@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
+from pathlib import Path
 from typing import get_args, get_origin, get_type_hints
 
 import pytest
@@ -81,3 +85,51 @@ def test_free_plan_sandbox_keeps_403_response() -> None:
         email.from_("from@example.test").to("to@example.test").subject("Fixture").send()
     assert caught.value.status_code == 403
     assert caught.value.response_body == body
+
+
+@pytest.mark.parametrize("model", ["WebhookData", "WebhookListData", "WebhookSecretData"])
+def test_old_typed_webhook_fixtures_need_safe_read_flag(tmp_path: Path, model: str) -> None:
+    value = {
+        "id": "fixture",
+        "scope": "route",
+        "project_ids": [],
+        "route_ids": [],
+        "route_id": None,
+        "name": "Fixture",
+        "url": "https://example.test/hook",
+        "events": [],
+        "enabled": True,
+        "last_called_at": None,
+        "created_at": "",
+        "updated_at": "",
+        "delivery_mode_filter": "both",
+    }
+    if model != "WebhookListData":
+        value["include_machine_events"] = False
+    if model == "WebhookSecretData":
+        value["secret"] = "synthetic-signing-secret"
+    caller = tmp_path / "old_caller.py"
+    environment = {**os.environ, "MYPYPATH": str(Path(__file__).resolve().parents[1] / "src")}
+    command = [
+        sys.executable,
+        "-m",
+        "mypy",
+        "--python-version",
+        "3.10",
+        "--follow-imports=silent",
+        "--no-incremental",
+        "--cache-dir",
+        str(tmp_path / "mypy-cache"),
+        str(caller),
+    ]
+    caller.write_text(f"from lettermint.types import {model}\nfixture: {model} = {value!r}\n")
+    old = subprocess.run(command, env=environment, capture_output=True, text=True, check=False)
+    assert (
+        old.returncode == 1
+        and f'Missing key "has_basic_auth" for TypedDict "{model}"' in old.stdout
+    )
+    assert "Found 1 error" in old.stdout
+    value["has_basic_auth"] = False
+    caller.write_text(f"from lettermint.types import {model}\nfixture: {model} = {value!r}\n")
+    migrated = subprocess.run(command, env=environment, capture_output=True, text=True, check=False)
+    assert migrated.returncode == 0, migrated.stdout + migrated.stderr
