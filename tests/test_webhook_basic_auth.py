@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
-from typing import get_type_hints
+from typing import get_args, get_origin, get_type_hints
 
 import pytest
 import respx
 from httpx import Response
+from typing_extensions import NotRequired, Required
 
 from lettermint import AsyncLettermint, HttpRequestError, Lettermint
 from lettermint import types as lm_types
@@ -49,11 +50,20 @@ async def test_webhook_credential_states_keep_bearer_auth(state: dict, asynchron
 
 
 def test_webhook_types_expose_required_read_flag_and_optional_nullable_credentials() -> None:
+    def field_hint(model: type, field: str):
+        selected = type(
+            "SelectedField", (), {"__annotations__": {field: model.__annotations__[field]}}
+        )
+        return get_type_hints(selected, globalns=vars(lm_types), include_extras=True)[field]
+
     for model in [lm_types.WebhookData, lm_types.WebhookListData, lm_types.WebhookSecretData]:
-        assert "Required[bool]" in str(get_type_hints(model, include_extras=True)["has_basic_auth"])
+        hint = field_hint(model, "has_basic_auth")
+        assert get_origin(hint) is Required and get_args(hint) == (bool,)
     for model in [lm_types.StoreWebhookData, lm_types.UpdateWebhookData]:
-        assert "NotRequired" in str(get_type_hints(model, include_extras=True)["basic_auth"])
-        assert "has_basic_auth" not in get_type_hints(model, include_extras=True)
+        hint = field_hint(model, "basic_auth")
+        assert get_origin(hint) is NotRequired
+        assert set(get_args(get_args(hint)[0])) == {lm_types.WebhookBasicAuthData, type(None)}
+        assert "has_basic_auth" not in model.__annotations__
     credentials: lm_types.WebhookBasicAuthData = {"username": "fixture", "password": ""}
     assert credentials["password"] == ""
 

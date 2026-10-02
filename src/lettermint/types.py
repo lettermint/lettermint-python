@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, Optional, TypedDict
 
 from typing_extensions import NotRequired, Required, TypeAlias
 
@@ -597,7 +597,7 @@ StoreWebhookData = TypedDict(
         "route_ids": "NotRequired[list[str]]",
         "route_id": "NotRequired[str | None]",
         "delivery_mode_filter": "NotRequired[WebhookDeliveryModeFilter | None]",
-        "basic_auth": "NotRequired[WebhookBasicAuthData | None]",
+        "basic_auth": "NotRequired[Optional[WebhookBasicAuthData]]",  # noqa: UP045 - Python 3.9 runtime hint resolution.
     },
 )
 
@@ -788,7 +788,7 @@ UpdateWebhookData = TypedDict(
         "route_ids": "NotRequired[list[str]]",
         "route_id": "NotRequired[str | None]",
         "delivery_mode_filter": "NotRequired[WebhookDeliveryModeFilter]",
-        "basic_auth": "NotRequired[WebhookBasicAuthData | None]",
+        "basic_auth": "NotRequired[Optional[WebhookBasicAuthData]]",  # noqa: UP045 - Python 3.9 runtime hint resolution.
     },
 )
 
