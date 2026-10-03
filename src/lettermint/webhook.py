@@ -1,238 +1,238 @@
-"""Webhook signature verification for the Lettermint SDK."""
+"""Verification of Lettermint webhook deliveries."""
 
 from __future__ import annotations
 
 import hashlib
 import hmac
 import json
+import re
 import time
-from typing import Any
+from collections.abc import Iterable, Mapping
+from typing import Any, NoReturn, TypeAlias
 
-from .exceptions import (
-    InvalidSignatureError,
-    JsonDecodeError,
-    TimestampToleranceError,
-    WebhookVerificationError,
-)
+from typing_extensions import Buffer, NotRequired, Required, TypedDict
 
-SIGNATURE_HEADER = "X-Lettermint-Signature"
-DELIVERY_HEADER = "X-Lettermint-Delivery"
-DEFAULT_TOLERANCE = 300  # 5 minutes
+from ._core import Secret
+from ._emails import as_bytes
+from ._generated.types import WebhookEvent
+from .exceptions import LettermintConfigError, WebhookVerificationError, WebhookVerificationReason
+
+__all__ = ["Webhook", "WebhookHeaders", "WebhookPayload"]
+
+SIGNATURE_HEADER = "x-lettermint-signature"
+DELIVERY_HEADER = "x-lettermint-delivery"
+DEFAULT_TOLERANCE = 300
+_PRINTABLE_ASCII = re.compile(r"[\x20-\x7e]*")
+_DIGITS = re.compile(r"[0-9]+")
+_HEX_SHA256 = re.compile(r"[0-9a-fA-F]{64}")
+_MAX_SAFE_INTEGER = 2**53 - 1
+
+#: Request headers: any mapping (``dict``, Django ``request.headers``, Flask,
+#: Starlette, ``http.client`` messages, ``httpx.Headers``) or an iterable of
+#: ``(name, value)`` pairs, such as the raw ASGI headers. Names are
+#: case-insensitive; values may be ``str``, ``bytes`` or a list of them.
+WebhookHeaders: TypeAlias = Mapping[Any, Any] | Iterable[tuple[Any, Any]]
+
+
+class WebhookPayload(TypedDict):
+    """A verified webhook delivery. The API may send more keys; they are kept."""
+
+    #: The delivery id.
+    id: NotRequired[str]
+    #: The event name, for example ``message.delivered``. Unknown events pass through as strings.
+    event: Required[WebhookEvent]
+    #: When the event occurred, ISO 8601.
+    timestamp: NotRequired[str]
+    data: Required[dict[str, Any]]
+
+
+def _fail(reason: WebhookVerificationReason, message: str) -> NoReturn:
+    raise WebhookVerificationError(reason, message)
+
+
+def _text(value: object) -> str | None:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (bytes, bytearray)):
+        return bytes(value).decode("latin-1")
+    return None
+
+
+def _read_header(headers: WebhookHeaders, name: str) -> list[str | None]:
+    """Every value of header ``name`` (case-insensitive); ``None`` for a value of another type."""
+    if isinstance(headers, (str, bytes, bytearray)):
+        raise TypeError(
+            "Webhook.verify() takes the request headers (a mapping or (name, value) pairs); "
+            "use verify_signature() for a signature header value"
+        )
+    pairs: Iterable[Any]
+    if isinstance(headers, Mapping) or hasattr(headers, "items"):
+        multi = getattr(headers, "multi_items", None)  # httpx.Headers joins duplicates in items()
+        pairs = multi() if callable(multi) else headers.items()
+    else:
+        pairs = headers
+    values: list[str | None] = []
+    for pair in pairs:
+        try:
+            key, value = pair
+        except (TypeError, ValueError):
+            continue
+        key_text = _text(key)
+        if key_text is None or key_text.lower() != name:
+            continue
+        for item in value if isinstance(value, (list, tuple)) else [value]:
+            if item is not None:
+                values.append(_text(item))
+    return values
+
+
+def _parse_signature(header: str) -> tuple[str, list[bytes]]:
+    def malformed(detail: str) -> NoReturn:
+        _fail("signature_header_malformed", f"The signature header is malformed: {detail}.")
+
+    if not _PRINTABLE_ASCII.fullmatch(header):
+        malformed("it contains non-ASCII or control characters")
+    timestamp: str | None = None
+    signatures: list[bytes] = []
+    for part in header.split(","):
+        entry = part.strip()
+        key, separator, value = entry.partition("=")
+        if not separator:
+            continue
+        if key == "t":
+            if timestamp is not None:
+                malformed("it has more than one timestamp")
+            if not _DIGITS.fullmatch(value) or len(value) > 16 or int(value) > _MAX_SAFE_INTEGER:
+                malformed("the timestamp is not a number of seconds")
+            timestamp = value
+        elif key == "v1" and _HEX_SHA256.fullmatch(value):
+            signatures.append(bytes.fromhex(value))
+    if timestamp is None:
+        malformed("the timestamp (t=) is missing")
+    if not signatures:
+        malformed("no v1 signature is present")
+    return timestamp, signatures
+
+
+def _body_bytes(body: object) -> bytes:
+    binary = None if isinstance(body, str) else as_bytes(body)
+    if isinstance(body, str):
+        data = body.encode("utf-8")
+    elif binary is not None:
+        data = binary
+    else:
+        _fail("body_invalid", "Pass the raw request body (str or bytes), not parsed JSON.")
+    if not data:
+        _fail("body_invalid", "The raw request body is empty.")
+    return data
 
 
 class Webhook:
-    """Webhook signature verifier for Lettermint webhooks.
+    """Verifies Lettermint webhook deliveries.
 
-    Verifies webhook signatures using HMAC-SHA256 and validates timestamps
-    to prevent replay attacks.
+    The signature is HMAC-SHA256 over ``"<t>." + raw body`` with the
+    endpoint's signing secret (``whsec_...``, used as is), compared in
+    constant time. Any ``v1`` signature in the header may match.
 
-    Args:
-        secret: The webhook signing secret.
-        tolerance: Maximum allowed time difference in seconds. Defaults to 300 (5 minutes).
+    ::
 
-    Raises:
-        ValueError: If secret is empty.
-
-    Example:
-        >>> from lettermint import Webhook
-        >>>
-        >>> webhook = Webhook(secret="your-webhook-secret")
-        >>> payload = webhook.verify_headers(request.headers, request.body)
-        >>> print(payload["event"])
+        webhook = Webhook(os.environ["LETTERMINT_WEBHOOK_SECRET"])
+        event = webhook.verify(request.body, request.headers)
     """
 
+    __slots__ = ("_secret", "_tolerance")
+
     def __init__(self, secret: str, tolerance: int = DEFAULT_TOLERANCE) -> None:
-        if not secret:
-            raise ValueError("Webhook secret cannot be empty")
-        self._secret = secret
+        """
+        Args:
+            secret: The webhook's signing secret, including the ``whsec_`` prefix.
+            tolerance: Maximum difference between the signed timestamp and the
+                current time, in seconds, in either direction. ``0`` accepts
+                only the current second; it does not disable the check.
+        """
+        if not isinstance(secret, str) or not secret:
+            raise LettermintConfigError("The webhook signing secret must be a non-empty string.")
+        if isinstance(tolerance, bool) or not isinstance(tolerance, int) or tolerance < 0:
+            raise LettermintConfigError("tolerance must be a non-negative whole number of seconds.")
+        self._secret = Secret(secret)
         self._tolerance = tolerance
 
-    def verify(
-        self,
-        payload: str | bytes,
-        signature: str,
-        timestamp: int | None = None,
-    ) -> dict[str, Any]:
-        """Verify a webhook signature and return the decoded payload.
+    @property
+    def tolerance(self) -> int:
+        """The timestamp tolerance in seconds."""
+        return self._tolerance
 
-        Args:
-            payload: The raw request body as a string or bytes. Bytes are signed as-is.
-            signature: The signature header value (format: t={timestamp},v1={hash}).
-            timestamp: Optional timestamp from delivery header for cross-validation.
+    def verify(self, raw_body: str | Buffer, headers: WebhookHeaders) -> WebhookPayload:
+        """Verifies a delivery from its raw body and request headers; returns the payload.
 
-        Returns:
-            The decoded webhook payload as a dictionary.
+        Requires ``X-Lettermint-Signature`` and ``X-Lettermint-Delivery``, which
+        must equal the signed timestamp.
 
         Raises:
-            WebhookVerificationError: If signature format is invalid or timestamps mismatch.
-            InvalidSignatureError: If signature doesn't match.
-            TimestampToleranceError: If timestamp is outside tolerance window.
-            JsonDecodeError: If payload is not valid JSON.
-
-        Example:
-            >>> payload = webhook.verify(
-            ...     payload=request_body,
-            ...     signature=request.headers["X-Lettermint-Signature"],
-            ... )
+            WebhookVerificationError: The delivery is not genuine. Its ``reason``
+                says why.
         """
-        parsed = self._parse_signature(signature)
-        signature_timestamp = parsed["timestamp"]
-        expected_signature = parsed["signature"]
-
-        if timestamp is not None and timestamp != signature_timestamp:
-            raise WebhookVerificationError(
-                "Timestamp mismatch between signature and delivery headers"
+        signatures = _read_header(headers, SIGNATURE_HEADER)
+        if not signatures:
+            _fail("signature_header_missing", "The X-Lettermint-Signature header is missing.")
+        if len(signatures) > 1 or signatures[0] is None:
+            _fail(
+                "signature_header_malformed",
+                "The request has more than one X-Lettermint-Signature header.",
             )
+        deliveries = _read_header(headers, DELIVERY_HEADER)
+        if not deliveries:
+            _fail("delivery_header_missing", "The X-Lettermint-Delivery header is missing.")
+        if len(deliveries) > 1 or deliveries[0] is None:
+            _fail(
+                "delivery_timestamp_mismatch",
+                "The request has more than one X-Lettermint-Delivery header.",
+            )
+        return self.verify_signature(raw_body, signatures[0], deliveries[0])
 
-        self._validate_timestamp(signature_timestamp)
-
-        raw_payload = payload if isinstance(payload, bytes) else payload.encode()
-        signed_content = f"{signature_timestamp}.".encode() + raw_payload
-        computed_signature = hmac.new(
-            self._secret.encode(),
-            signed_content,
-            hashlib.sha256,
-        ).hexdigest()
-
-        # Compare as bytes: compare_digest raises TypeError for non-ASCII str input.
-        if not hmac.compare_digest(
-            computed_signature.encode(), expected_signature.encode("utf-8", "replace")
-        ):
-            raise InvalidSignatureError("Signature verification failed")
-
-        try:
-            data: dict[str, Any] = json.loads(payload)
-        except ValueError as e:
-            raise JsonDecodeError(f"Failed to decode webhook payload: {e}") from e
-
-        return data
-
-    def verify_headers(
-        self,
-        headers: dict[str, str],
-        payload: str | bytes,
-    ) -> dict[str, Any]:
-        """Verify a webhook using HTTP headers and return the decoded payload.
-
-        Args:
-            headers: HTTP headers from the request (case-insensitive).
-            payload: The raw request body as a string or bytes. Bytes are signed as-is.
-
-        Returns:
-            The decoded webhook payload as a dictionary.
-
-        Raises:
-            WebhookVerificationError: If required headers are missing or verification fails.
-            InvalidSignatureError: If signature doesn't match.
-            TimestampToleranceError: If timestamp is outside tolerance window.
-            JsonDecodeError: If payload is not valid JSON.
-
-        Example:
-            >>> payload = webhook.verify_headers(
-            ...     headers=dict(request.headers),
-            ...     payload=request.body,
-            ... )
-        """
-        normalized_headers = self._normalize_headers(headers)
-
-        signature = normalized_headers.get(SIGNATURE_HEADER.lower())
-        timestamp_str = normalized_headers.get(DELIVERY_HEADER.lower())
-
-        if signature is None:
-            raise WebhookVerificationError(f"Missing signature header: {SIGNATURE_HEADER}")
-
-        if timestamp_str is None:
-            raise WebhookVerificationError(f"Missing delivery header: {DELIVERY_HEADER}")
-
-        try:
-            timestamp = int(timestamp_str)
-        except ValueError:
-            raise WebhookVerificationError(
-                f"Invalid timestamp format in {DELIVERY_HEADER} header"
-            ) from None
-
-        return self.verify(payload, signature, timestamp)
-
-    @staticmethod
     def verify_signature(
-        payload: str | bytes,
-        signature: str,
-        secret: str,
-        timestamp: int | None = None,
-        tolerance: int = DEFAULT_TOLERANCE,
-    ) -> dict[str, Any]:
-        """Static convenience method to verify a webhook signature.
+        self, raw_body: str | Buffer, signature_header: str, timestamp: str | int | None = None
+    ) -> WebhookPayload:
+        """Verifies the raw body against an ``X-Lettermint-Signature`` value.
 
-        Args:
-            payload: The raw request body as a string or bytes. Bytes are signed as-is.
-            signature: The signature header value (format: t={timestamp},v1={hash}).
-            secret: The webhook signing secret.
-            timestamp: Optional timestamp from delivery header for cross-validation.
-            tolerance: Maximum allowed time difference in seconds. Defaults to 300.
-
-        Returns:
-            The decoded webhook payload as a dictionary.
+        For setups where the headers are not at hand. When ``timestamp`` (the
+        ``X-Lettermint-Delivery`` value) is given, it must equal the signed
+        timestamp.
 
         Raises:
-            ValueError: If secret is empty.
-            WebhookVerificationError: If signature format is invalid or timestamps mismatch.
-            InvalidSignatureError: If signature doesn't match.
-            TimestampToleranceError: If timestamp is outside tolerance window.
-            JsonDecodeError: If payload is not valid JSON.
-
-        Example:
-            >>> payload = Webhook.verify_signature(
-            ...     payload=request_body,
-            ...     signature=request.headers["X-Lettermint-Signature"],
-            ...     secret="your-webhook-secret",
-            ... )
+            WebhookVerificationError: The delivery is not genuine.
         """
-        webhook = Webhook(secret, tolerance)
-        return webhook.verify(payload, signature, timestamp)
-
-    def _parse_signature(self, signature: str) -> dict[str, Any]:
-        """Parse the signature header into timestamp and signature hash."""
-        parts = signature.split(",")
-
-        parsed_timestamp: int | None = None
-        parsed_signature: str | None = None
-
-        for part in parts:
-            key_value = part.split("=", 1)
-            if len(key_value) != 2:
-                continue
-
-            key, value = key_value
-
-            if key == "t":
-                try:
-                    parsed_timestamp = int(value)
-                except ValueError:
-                    continue
-            elif key == "v1":
-                parsed_signature = value
-
-        if parsed_timestamp is None or parsed_signature is None:
-            raise WebhookVerificationError(
-                "Invalid signature format. Expected format: t={timestamp},v1={signature}"
+        if not isinstance(signature_header, str) or not signature_header.strip():
+            _fail("signature_header_missing", "The X-Lettermint-Signature header is missing.")
+        signed_at, candidates = _parse_signature(signature_header)
+        if timestamp is not None and str(timestamp).strip() != signed_at:
+            _fail(
+                "delivery_timestamp_mismatch",
+                "The X-Lettermint-Delivery header does not match the signed timestamp.",
             )
-
-        return {
-            "timestamp": parsed_timestamp,
-            "signature": parsed_signature,
-        }
-
-    def _validate_timestamp(self, timestamp: int) -> None:
-        """Validate that the timestamp is within the tolerance window."""
-        current_time = int(time.time())
-        difference = abs(current_time - timestamp)
-
-        if difference > self._tolerance:
-            raise TimestampToleranceError(
-                f"Timestamp outside tolerance window. "
-                f"Difference: {difference} seconds, Tolerance: {self._tolerance} seconds"
+        body = _body_bytes(raw_body)
+        if abs(int(time.time()) - int(signed_at)) > self._tolerance:
+            _fail(
+                "timestamp_out_of_tolerance",
+                "The signed timestamp is outside the allowed tolerance.",
             )
+        key = self._secret.reveal().encode("utf-8")
+        expected = hmac.new(key, signed_at.encode("ascii") + b"." + body, hashlib.sha256).digest()
+        matched = False
+        for candidate in candidates:
+            matched |= hmac.compare_digest(candidate, expected)
+        if not matched:
+            _fail("signature_mismatch", "The webhook signature does not match.")
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except ValueError:
+            _fail("payload_invalid", "The webhook payload is not valid JSON.")
+        if not isinstance(payload, dict):
+            _fail("payload_invalid", "The webhook payload is not a JSON object.")
+        return payload  # type: ignore[return-value]
 
-    def _normalize_headers(self, headers: dict[str, str]) -> dict[str, str]:
-        """Normalize headers to lowercase keys."""
-        return {key.lower(): value for key, value in headers.items()}
+    def __repr__(self) -> str:
+        return f"Webhook(tolerance={self._tolerance})"
+
+    def __reduce__(self) -> NoReturn:
+        raise TypeError("Webhook verifiers cannot be pickled; they hold the signing secret")

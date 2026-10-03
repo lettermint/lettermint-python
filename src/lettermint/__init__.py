@@ -1,91 +1,132 @@
-"""
-Lettermint Python SDK
-=====================
+"""The official Python SDK for Lettermint.
 
-Official Python SDK for the Lettermint email API.
+::
 
-Basic Usage:
-    >>> from lettermint import Lettermint
-    >>>
-    >>> client = Lettermint(api_token="your-api-token")
-    >>>
-    >>> response = (
-    ...     client.email
-    ...     .from_("sender@example.com")
-    ...     .to("recipient@example.com")
-    ...     .subject("Hello from Python!")
-    ...     .html("<h1>Welcome!</h1>")
-    ...     .send()
-    ... )
-    >>> print(response["message_id"])
+    from lettermint import Lettermint
 
-Async Usage:
-    >>> from lettermint import AsyncLettermint
-    >>>
-    >>> async with AsyncLettermint(api_token="your-api-token") as client:
-    ...     response = await (
-    ...         client.email
-    ...         .from_("sender@example.com")
-    ...         .to("recipient@example.com")
-    ...         .subject("Hello from Python!")
-    ...         .html("<h1>Welcome!</h1>")
-    ...         .send()
-    ...     )
+    lettermint = Lettermint(sending_token=os.environ["LETTERMINT_PROJECT_TOKEN"])
+    result = lettermint.emails.send({
+        "from": "Acme <hello@acme.com>",
+        "to": ["jane@example.com"],
+        "subject": "Welcome to Acme",
+        "html": "<p>Thanks for signing up.</p>",
+    })
 
-Webhook Verification:
-    >>> from lettermint import Webhook
-    >>>
-    >>> webhook = Webhook(secret="your-webhook-secret")
-    >>> payload = webhook.verify_headers(request.headers, request.body)
+``AsyncLettermint`` has the same surface for ``asyncio`` and ``trio``. Request
+and response types are in :mod:`lettermint.types`. Upgrading from 2.x? Read
+``UPGRADE.md``.
 """
 
+from . import types
+from ._async import (
+    AsyncDomains,
+    AsyncEmailBuilder,
+    AsyncEmails,
+    AsyncLettermint,
+    AsyncMessages,
+    AsyncProjects,
+    AsyncReportForwarding,
+    AsyncRoutes,
+    AsyncStats,
+    AsyncSuppressions,
+    AsyncTeam,
+    AsyncTeamMembers,
+    AsyncWebhookDeliveries,
+    AsyncWebhooks,
+)
+from ._emails import BaseEmailBuilder, EmailAttachment, EmailMessage
+from ._generated.types import CursorPage
+from ._sync import (
+    Domains,
+    EmailBuilder,
+    Emails,
+    Lettermint,
+    Messages,
+    Projects,
+    ReportForwarding,
+    Routes,
+    Stats,
+    Suppressions,
+    Team,
+    TeamMembers,
+    WebhookDeliveries,
+    Webhooks,
+)
+from ._version import __version__
 from .exceptions import (
-    ClientError,
-    HttpRequestError,
-    InvalidSignatureError,
-    JsonDecodeError,
+    APIConnectionError,
+    APIError,
+    APITimeoutError,
+    AuthenticationError,
+    ConflictError,
+    LettermintConfigError,
     LettermintError,
-    TimeoutError,
-    TimestampToleranceError,
+    LettermintValidationError,
+    NotFoundError,
+    PermissionDeniedError,
+    RateLimitError,
+    RedirectError,
+    ServerError,
+    UnexpectedResponseError,
     ValidationError,
     WebhookVerificationError,
+    WebhookVerificationReason,
 )
-from .lettermint import ApiClient, AsyncApiClient, AsyncLettermint, Lettermint
-from .message_tag import MessageTag
-from .types import (
-    EmailAttachment,
-    EmailPayload,
-    EmailStatus,
-    SendBatchEmailResponse,
-    SendEmailResponse,
-)
-from .webhook import Webhook
-
-__version__ = "1.0.0"
+from .webhook import Webhook, WebhookHeaders, WebhookPayload
 
 __all__ = [
-    # Main clients
-    "Lettermint",
+    "APIConnectionError",
+    "APIError",
+    "APITimeoutError",
+    "AsyncDomains",
+    "AsyncEmailBuilder",
+    "AsyncEmails",
     "AsyncLettermint",
-    "ApiClient",
-    "AsyncApiClient",
-    # Webhook
-    "Webhook",
-    # Exceptions
-    "LettermintError",
-    "HttpRequestError",
-    "ValidationError",
-    "ClientError",
-    "TimeoutError",
-    "WebhookVerificationError",
-    "InvalidSignatureError",
-    "TimestampToleranceError",
-    "JsonDecodeError",
-    # Types
+    "AsyncMessages",
+    "AsyncProjects",
+    "AsyncReportForwarding",
+    "AsyncRoutes",
+    "AsyncStats",
+    "AsyncSuppressions",
+    "AsyncTeam",
+    "AsyncTeamMembers",
+    "AsyncWebhookDeliveries",
+    "AsyncWebhooks",
+    "AuthenticationError",
+    "BaseEmailBuilder",
+    "ConflictError",
+    "CursorPage",
+    "Domains",
     "EmailAttachment",
-    "EmailPayload",
-    "EmailStatus",
-    "SendEmailResponse",
-    "SendBatchEmailResponse",
-    "MessageTag",
+    "EmailBuilder",
+    "EmailMessage",
+    "Emails",
+    "Lettermint",
+    "LettermintConfigError",
+    "LettermintError",
+    "LettermintValidationError",
+    "Messages",
+    "NotFoundError",
+    "PermissionDeniedError",
+    "Projects",
+    "RateLimitError",
+    "RedirectError",
+    "ReportForwarding",
+    "Routes",
+    "ServerError",
+    "Stats",
+    "Suppressions",
+    "Team",
+    "TeamMembers",
+    "UnexpectedResponseError",
+    "ValidationError",
+    "Webhook",
+    "WebhookDeliveries",
+    "WebhookHeaders",
+    "WebhookPayload",
+    "WebhookVerificationError",
+    "WebhookVerificationReason",
+    "Webhooks",
+    "__version__",
+    "types",
 ]
