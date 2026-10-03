@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, Optional, TypedDict
 
 from typing_extensions import NotRequired, Required, TypeAlias
 
@@ -576,6 +576,14 @@ WebhookEvent: TypeAlias = Literal[
 ]
 WebhookScope: TypeAlias = Literal["team", "project", "route"]
 WebhookDeliveryModeFilter: TypeAlias = Literal["live", "sandbox", "both"]
+WebhookBasicAuthData = TypedDict(
+    "WebhookBasicAuthData",
+    {
+        "username": "Required[str]",
+        "password": "Required[str]",
+    },
+)
+
 StoreWebhookData = TypedDict(
     "StoreWebhookData",
     {
@@ -589,6 +597,7 @@ StoreWebhookData = TypedDict(
         "route_ids": "NotRequired[list[str]]",
         "route_id": "NotRequired[str | None]",
         "delivery_mode_filter": "NotRequired[WebhookDeliveryModeFilter | None]",
+        "basic_auth": "NotRequired[Optional[WebhookBasicAuthData]]",  # noqa: UP045 - Python 3.9 runtime hint resolution.
     },
 )
 
@@ -779,6 +788,7 @@ UpdateWebhookData = TypedDict(
         "route_ids": "NotRequired[list[str]]",
         "route_id": "NotRequired[str | None]",
         "delivery_mode_filter": "NotRequired[WebhookDeliveryModeFilter]",
+        "basic_auth": "NotRequired[Optional[WebhookBasicAuthData]]",  # noqa: UP045 - Python 3.9 runtime hint resolution.
     },
 )
 
@@ -792,6 +802,7 @@ WebhookData = TypedDict(
         "route_id": "Required[str | None]",
         "name": "Required[str]",
         "url": "Required[str]",
+        "has_basic_auth": "Required[bool]",
         "events": "Required[list[str]]",
         "enabled": "Required[bool]",
         "include_machine_events": "Required[bool]",
@@ -864,6 +875,7 @@ WebhookListData = TypedDict(
         "last_called_at": "Required[str | None]",
         "created_at": "Required[str]",
         "updated_at": "Required[str]",
+        "has_basic_auth": "Required[bool]",
     },
 )
 
@@ -886,6 +898,7 @@ WebhookSecretData = TypedDict(
         "created_at": "Required[str]",
         "updated_at": "Required[str]",
         "delivery_mode_filter": "Required[WebhookDeliveryModeFilter]",
+        "has_basic_auth": "Required[bool]",
     },
 )
 
