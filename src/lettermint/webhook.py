@@ -49,14 +49,14 @@ class Webhook:
 
     def verify(
         self,
-        payload: str,
+        payload: str | bytes,
         signature: str,
         timestamp: int | None = None,
     ) -> dict[str, Any]:
         """Verify a webhook signature and return the decoded payload.
 
         Args:
-            payload: The raw request body as a string.
+            payload: The raw request body as a string or bytes. Bytes are signed as-is.
             signature: The signature header value (format: t={timestamp},v1={hash}).
             timestamp: Optional timestamp from delivery header for cross-validation.
 
@@ -86,19 +86,23 @@ class Webhook:
 
         self._validate_timestamp(signature_timestamp)
 
-        signed_content = f"{signature_timestamp}.{payload}"
+        raw_payload = payload if isinstance(payload, bytes) else payload.encode()
+        signed_content = f"{signature_timestamp}.".encode() + raw_payload
         computed_signature = hmac.new(
             self._secret.encode(),
-            signed_content.encode(),
+            signed_content,
             hashlib.sha256,
         ).hexdigest()
 
-        if not hmac.compare_digest(computed_signature, expected_signature):
+        # Compare as bytes: compare_digest raises TypeError for non-ASCII str input.
+        if not hmac.compare_digest(
+            computed_signature.encode(), expected_signature.encode("utf-8", "replace")
+        ):
             raise InvalidSignatureError("Signature verification failed")
 
         try:
             data: dict[str, Any] = json.loads(payload)
-        except json.JSONDecodeError as e:
+        except ValueError as e:
             raise JsonDecodeError(f"Failed to decode webhook payload: {e}") from e
 
         return data
@@ -106,13 +110,13 @@ class Webhook:
     def verify_headers(
         self,
         headers: dict[str, str],
-        payload: str,
+        payload: str | bytes,
     ) -> dict[str, Any]:
         """Verify a webhook using HTTP headers and return the decoded payload.
 
         Args:
             headers: HTTP headers from the request (case-insensitive).
-            payload: The raw request body as a string.
+            payload: The raw request body as a string or bytes. Bytes are signed as-is.
 
         Returns:
             The decoded webhook payload as a dictionary.
@@ -151,7 +155,7 @@ class Webhook:
 
     @staticmethod
     def verify_signature(
-        payload: str,
+        payload: str | bytes,
         signature: str,
         secret: str,
         timestamp: int | None = None,
@@ -160,7 +164,7 @@ class Webhook:
         """Static convenience method to verify a webhook signature.
 
         Args:
-            payload: The raw request body as a string.
+            payload: The raw request body as a string or bytes. Bytes are signed as-is.
             signature: The signature header value (format: t={timestamp},v1={hash}).
             secret: The webhook signing secret.
             timestamp: Optional timestamp from delivery header for cross-validation.

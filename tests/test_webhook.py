@@ -251,3 +251,89 @@ class TestWebhook:
         result = webhook.verify(payload, signature)
 
         assert result == payload_data
+
+
+class TestWebhookBytesPayload:
+    """Tests for raw bytes payloads (e.g. Django's request.body)."""
+
+    def test_verify_bytes_payload(self, webhook_secret: str) -> None:
+        """Bytes payloads are verified against the raw body."""
+        payload = json.dumps({"event": "email.delivered", "data": {"name": "café"}})
+        signature, _ = generate_valid_signature(payload, webhook_secret)
+
+        webhook = Webhook(secret=webhook_secret)
+        result = webhook.verify(payload.encode(), signature)
+
+        assert result["event"] == "email.delivered"
+        assert result["data"]["name"] == "café"
+
+    def test_verify_bytes_matches_str(self, webhook_secret: str) -> None:
+        """Str payloads keep working and match the bytes result."""
+        payload = json.dumps({"event": "email.delivered"})
+        signature, _ = generate_valid_signature(payload, webhook_secret)
+
+        webhook = Webhook(secret=webhook_secret)
+        assert webhook.verify(payload, signature) == webhook.verify(payload.encode(), signature)
+
+    def test_verify_bytes_uses_raw_body_byte_for_byte(self, webhook_secret: str) -> None:
+        """Whitespace and non-UTF-8-normalised bodies are signed exactly as received."""
+        payload = b'{ "event" :  "email.delivered" }\n'
+        timestamp = int(time.time())
+        digest = hmac.new(
+            webhook_secret.encode(), f"{timestamp}.".encode() + payload, hashlib.sha256
+        ).hexdigest()
+
+        webhook = Webhook(secret=webhook_secret)
+        result = webhook.verify(payload, f"t={timestamp},v1={digest}")
+
+        assert result["event"] == "email.delivered"
+
+    def test_tampered_bytes_payload(self, webhook_secret: str) -> None:
+        """Tampered bytes payloads are rejected."""
+        payload = json.dumps({"event": "email.delivered"})
+        signature, _ = generate_valid_signature(payload, webhook_secret)
+
+        webhook = Webhook(secret=webhook_secret)
+        with pytest.raises(InvalidSignatureError):
+            webhook.verify(json.dumps({"event": "email.bounced"}).encode(), signature)
+
+    def test_verify_headers_bytes_payload(self, webhook_secret: str) -> None:
+        """verify_headers accepts a bytes payload."""
+        payload = json.dumps({"event": "email.delivered"})
+        signature, timestamp = generate_valid_signature(payload, webhook_secret)
+        headers = {
+            "X-Lettermint-Signature": signature,
+            "X-Lettermint-Delivery": str(timestamp),
+        }
+
+        webhook = Webhook(secret=webhook_secret)
+        assert webhook.verify_headers(headers, payload.encode())["event"] == "email.delivered"
+
+    def test_static_verify_signature_bytes_payload(self, webhook_secret: str) -> None:
+        """The static helper accepts a bytes payload."""
+        payload = json.dumps({"event": "email.delivered"})
+        signature, _ = generate_valid_signature(payload, webhook_secret)
+
+        result = Webhook.verify_signature(payload.encode(), signature, webhook_secret)
+        assert result["event"] == "email.delivered"
+
+    def test_invalid_utf8_bytes_payload_raises_json_error(self, webhook_secret: str) -> None:
+        """A correctly signed but non-decodable body raises JsonDecodeError."""
+        payload = b"\xff\xfe not json"
+        timestamp = int(time.time())
+        digest = hmac.new(
+            webhook_secret.encode(), f"{timestamp}.".encode() + payload, hashlib.sha256
+        ).hexdigest()
+
+        webhook = Webhook(secret=webhook_secret)
+        with pytest.raises(JsonDecodeError):
+            webhook.verify(payload, f"t={timestamp},v1={digest}")
+
+    def test_non_ascii_signature_raises_verification_error(self, webhook_secret: str) -> None:
+        """Non-ASCII signature values fail verification instead of raising TypeError."""
+        payload = json.dumps({"event": "email.delivered"})
+        timestamp = int(time.time())
+
+        webhook = Webhook(secret=webhook_secret)
+        with pytest.raises(InvalidSignatureError):
+            webhook.verify(payload, f"t={timestamp},v1=café")
