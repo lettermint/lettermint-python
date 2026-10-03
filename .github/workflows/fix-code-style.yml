@@ -28,8 +28,8 @@ jobs:
 
       - name: Fix code style issues
         run: |
-          python -m ruff check --fix src/lettermint || true
-          python -m ruff format src/lettermint || true
+          python -m ruff check --fix src tests scripts || true
+          python -m ruff format src tests scripts || true
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v7
