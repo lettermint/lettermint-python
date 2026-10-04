@@ -49,19 +49,28 @@ jobs:
           pip install -e ".[dev]"
           pip install build
 
-      - name: Update version in pyproject.toml
+      # pyproject.toml reads the version from src/lettermint/_version.py (hatch dynamic version).
+      - name: Set the version from the tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          sed -i "s/^version = .*/version = \"${{ steps.version.outputs.version }}\"/" pyproject.toml
-
-      - name: Update version in __init__.py
-        run: |
-          sed -i "s/^__version__ = .*/__version__ = \"${{ steps.version.outputs.version }}\"/" src/lettermint/__init__.py
+          sed -i "s/^__version__ = .*/__version__ = \"${VERSION}\"/" src/lettermint/_version.py
+          grep -qx "__version__ = \"${VERSION}\"" src/lettermint/_version.py
 
       - name: Run tests
         run: python -m pytest tests/ -v
 
       - name: Build package
         run: python -m build
+
+      - name: Check the built version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          ls dist/
+          normalized=$(python -c 'import sys; from packaging.version import Version; print(Version(sys.argv[1]))' "$VERSION")
+          test -f "dist/lettermint-${normalized}-py3-none-any.whl"
+          test -f "dist/lettermint-${normalized}.tar.gz"
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

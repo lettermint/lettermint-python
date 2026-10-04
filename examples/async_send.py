@@ -1,44 +1,29 @@
-"""
-Async email sending example using the AsyncLettermint client.
+"""Send a batch of emails with the asynchronous client.
 
-Useful for high-throughput applications or when integrating with
-async frameworks like FastAPI, Starlette, or aiohttp.
+LETTERMINT_PROJECT_TOKEN=lm_... python examples/async_send.py
 """
 
 import asyncio
 import os
+from pathlib import Path
 
-from lettermint import AsyncLettermint, MessageTag
-
-
-async def send_emails():
-    # Initialize the async client
-    client = AsyncLettermint(os.environ["LETTERMINT_API_TOKEN"])
-
-    # Send multiple emails concurrently
-    emails = [
-        {"to": "user1@example.com", "name": "Alice"},
-        {"to": "user2@example.com", "name": "Bob"},
-        {"to": "user3@example.com", "name": "Charlie"},
-    ]
-
-    tasks = [
-        client.email()
-        .from_("sender@example.com")
-        .to(email["to"])
-        .subject(f"Hello {email['name']}!")
-        .html(f"<p>Welcome aboard, {email['name']}!</p>")
-        .tags([MessageTag(name="campaign", value="onboarding")])
-        .send()
-        for email in emails
-    ]
-
-    # Send all emails concurrently
-    results = await asyncio.gather(*tasks)
-
-    for result in results:
-        print(f"Email sent! ID: {result['id']}")
+from lettermint import AsyncLettermint
 
 
-if __name__ == "__main__":
-    asyncio.run(send_emails())
+async def main() -> None:
+    async with AsyncLettermint(sending_token=os.environ["LETTERMINT_PROJECT_TOKEN"]) as lettermint:
+        base = lettermint.emails.compose().from_("billing@acme.com").subject("Your invoice")
+        invoice = Path(__file__).read_bytes()  # any bytes; the SDK encodes them
+        results = await lettermint.emails.send_batch(
+            [
+                base.to("jane@example.com")
+                .text("Hi Jane")
+                .attach("invoice.txt", invoice, content_type="text/plain"),
+                base.to("john@example.com").text("Hi John"),
+            ]
+        )
+        for result in results:
+            print(result["message_id"], result["status"])
+
+
+asyncio.run(main())
