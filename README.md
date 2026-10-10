@@ -270,7 +270,7 @@ html = lettermint.messages.html("message-id")
 | `team.members` | `list`, `iterate`, `retrieve`, `update_assignment` |
 | `webhooks` | `list`, `iterate`, `create`, `retrieve`, `update`, `delete`, `test`, `regenerate_secret` |
 | `webhooks.deliveries` | `list(webhook_id)`, `iterate(webhook_id)`, `retrieve(webhook_id, delivery_id)` |
-| (root) | `ping`, `analytics`, `blocked_file_types` |
+| (root) | `ping`, `analytics`, `analytics_pages`, `blocked_file_types` |
 
 ### Query parameters and pagination
 
@@ -296,6 +296,51 @@ async for delivery in async_lettermint.webhooks.deliveries.iterate(webhook_id):
     ...
 ```
 
+### Analytics
+
+`lettermint.analytics(query)` runs one analytics query. `metrics` is the only required field; by default the API returns a summary of the last 30 days:
+
+```python
+result = lettermint.analytics({
+    "metrics": ["delivered", "bounced", "delivery_rate"],
+    "from": "2026-10-01",
+    "to": "2026-10-31",
+    "timezone": "Europe/Amsterdam",
+})
+
+print(result["data"]["summary"]["metrics"]["delivery_rate"])  # 0.9836, or None when there is no data
+print(result["meta"]["partial"], result["meta"]["effective_to"])
+```
+
+Add `include` to ask for a `time_series` or a `breakdown`. A breakdown needs `group_by`, and the API returns its rows in pages of `limit` (at most 200). `analytics_pages()` follows `pagination.next_cursor` for you. It returns an iterator (an async iterator on `AsyncLettermint`) that yields one whole response per request, so each page keeps its `meta` and `pagination`:
+
+```python
+from lettermint.types import AnalyticsBreakdownRow, AnalyticsQuery
+
+query: AnalyticsQuery = {
+    "metrics": ["delivered", "bounced"],
+    "include": ["breakdown"],
+    "group_by": ["recipient_domain"],
+    "sort": {"metric": "bounced", "direction": "desc"},
+    "limit": 200,
+}
+
+rows: list[AnalyticsBreakdownRow] = []
+for page in lettermint.analytics_pages(query):
+    rows.extend(page["data"].get("breakdown", []))
+    if page["pagination"]["truncated"]:
+        print("More groups exist than the API ranks.")
+```
+
+A cursor expires 60 seconds after its response, so read the next page promptly. An expired cursor raises a `ValidationError` with `errors["cursor"]`; run the query again to start over.
+
+A few things to know when you read a response:
+
+- A metric is `None` when the API cannot measure it for that row or bucket, and a rate is `None` when its denominator is zero. `0` means a measured zero.
+- `data["summary"]`, `data["time_series"]` and `data["breakdown"]` are present only when `include` asks for them. `previous`, `change` and `meta["comparison"]` are present only with `compare`.
+- `smtp_response_group` can be used in `group_by` but not as a filter dimension.
+- Analytics can answer `503` or `504` when a query takes too long or the service is busy. Both raise a `ServerError`; see [Errors](#errors).
+
 ### Timeouts and cancellation
 
 Every method takes a keyword-only `timeout` in seconds that overrides the client's. With `AsyncLettermint`, cancelling the task (for example with `asyncio.timeout()` or a `trio` cancel scope) cancels the request; the SDK lets the cancellation through.
@@ -313,7 +358,7 @@ Every exception the SDK raises is a `LettermintError`:
 | `ConflictError` | 409 | |
 | `ValidationError` | 422 | `errors` (field errors) |
 | `RateLimitError` | 429 | `retry_after` (seconds) |
-| `ServerError` | 5xx | |
+| `ServerError` | 5xx | `retry_after` (seconds, when the API sent `Retry-After`) |
 | `APITimeoutError` | No complete response within the timeout | `timeout` |
 | `APIConnectionError` | The request failed (DNS, TLS, refused, reset) | |
 | `UnexpectedResponseError` | An empty or non-JSON body where JSON was expected, or an error page such as a proxy's HTML 502 | `status`, `body_excerpt` |

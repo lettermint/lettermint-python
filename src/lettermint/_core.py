@@ -356,7 +356,9 @@ def _api_error(status: int, reason: str, headers: Mapping[str, str], body: Any) 
             message, retry_after=parse_retry_after(headers.get("retry-after")), **common
         )
     if status >= 500:
-        return ServerError(message, **common)
+        return ServerError(
+            message, retry_after=parse_retry_after(headers.get("retry-after")), **common
+        )
     return APIError(message, **common)
 
 

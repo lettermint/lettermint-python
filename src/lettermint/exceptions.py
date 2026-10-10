@@ -158,6 +158,20 @@ class RateLimitError(APIError):
 class ServerError(APIError):
     """HTTP 5xx with a JSON or empty body."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        status: int,
+        code: str | None = None,
+        details: Any = None,
+        body: Any = None,
+        retry_after: int | None = None,
+    ) -> None:
+        super().__init__(message, status=status, code=code, details=details, body=body)
+        #: Seconds to wait, from the ``Retry-After`` header, when the API sent one.
+        self.retry_after = retry_after
+
 
 class APITimeoutError(LettermintError):
     """The request did not complete within the timeout.

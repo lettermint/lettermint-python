@@ -22,7 +22,12 @@ from .conftest import BASE_URL, MESSAGE, MockAPI
 # (method path, positional arguments, operation key)
 CALLS: list[tuple[str, tuple[Any, ...], str]] = [
     ("ping", (), "GET /ping"),
-    ("analytics", ({"from": "2026-10-01", "to": "2026-10-31"},), "POST /analytics"),
+    (
+        "analytics",
+        ({"metrics": ["delivered"], "from": "2026-10-01", "to": "2026-10-31"},),
+        "POST /analytics",
+    ),
+    ("analytics_pages", ({"metrics": ["delivered"]},), "POST /analytics"),
     ("blocked_file_types", (), "GET /blocked-file-types"),
     ("emails.send", (MESSAGE,), "POST /send"),
     ("emails.send_batch", ([MESSAGE],), "POST /send/batch"),
@@ -186,7 +191,7 @@ LAYOUT = {
     ],
     "webhooks.deliveries": ["iterate", "list", "retrieve"],
     "emails": ["compose", "ping", "send", "send_batch"],
-    "": ["analytics", "blocked_file_types", "close", "ping"],
+    "": ["analytics", "analytics_pages", "blocked_file_types", "close", "ping"],
 }
 
 
@@ -231,7 +236,7 @@ def test_every_operation_is_reachable_from_the_sync_client(
         before = len(api.requests)
         result = resolve(client, dotted)(*args)
         if isinstance(result, Iterator):
-            assert list(result) == [{"id": "x"}]
+            assert list(result) == [{} if dotted == "analytics_pages" else {"id": "x"}]
         assert [operation_of(r) for r in api.requests[before:]] == [key], dotted
         reached.add(key)
     assert reached == set(OPERATIONS)
@@ -247,7 +252,9 @@ async def test_every_operation_is_reachable_from_the_async_client(
         before = len(api.requests)
         result = resolve(aclient, dotted)(*args)
         if isinstance(result, AsyncIterator):
-            assert [item async for item in result] == [{"id": "x"}]
+            assert [item async for item in result] == [
+                {} if dotted == "analytics_pages" else {"id": "x"}
+            ]
         else:
             await result
         assert [operation_of(r) for r in api.requests[before:]] == [key], dotted
@@ -282,7 +289,7 @@ def test_sync_and_async_clients_have_the_same_signatures() -> None:
                 inspect.signature(right)
             ).replace("Async", ""), (group, name)
             assert inspect.iscoroutinefunction(right) != (
-                name in ("compose", "iterate", "iterate_events")
+                name in ("compose", "iterate", "iterate_events", "analytics_pages")
             ), (group, name)
     builder_methods = _public_methods(sync.emails.compose())
     assert builder_methods == _public_methods(asynchronous.emails.compose())
@@ -302,6 +309,8 @@ def test_return_annotations_match_the_operation_table() -> None:
             assert typing.get_args(returned) == (getattr(lm_types, operation.pagination.items),), (
                 dotted
             )
+        elif dotted == "analytics_pages":
+            assert typing.get_args(returned) == (getattr(lm_types, operation.response.type),)
         elif operation.response.type == "text":
             assert returned is str, dotted
         elif operation.response.type == "empty":
