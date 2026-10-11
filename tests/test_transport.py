@@ -305,6 +305,22 @@ def test_retry_after_seconds_and_http_dates(api: MockAPI, client: Lettermint) ->
     assert unparsable.value.retry_after is None
 
 
+def test_retry_after_on_a_5xx_response(api: MockAPI, client: Lettermint) -> None:
+    api.json(503, {"message": "Service Unavailable"}, **{"Retry-After": "2"})
+    with pytest.raises(ServerError) as caught:
+        client.emails.send(MESSAGE)
+    assert caught.value.retry_after == 2
+    later = email.utils.formatdate(time.time() + 120, usegmt=True)
+    api.json(502, {}, **{"Retry-After": later})
+    with pytest.raises(ServerError) as dated:
+        client.emails.send(MESSAGE)
+    assert dated.value.retry_after is not None and 115 <= dated.value.retry_after <= 121
+    api.json(500, {"message": "Server Error"})
+    with pytest.raises(ServerError) as plain:
+        client.emails.send(MESSAGE)
+    assert plain.value.retry_after is None
+
+
 def test_errors_survive_pickling(api: MockAPI, client: Lettermint) -> None:
     import pickle
 
@@ -318,6 +334,11 @@ def test_errors_survive_pickling(api: MockAPI, client: Lettermint) -> None:
         3,
         "slow down",
     )
+    api.json(503, {"message": "down"}, **{"Retry-After": "5"})
+    with pytest.raises(ServerError) as server:
+        client.emails.send(MESSAGE)
+    restored = pickle.loads(pickle.dumps(server.value))
+    assert (type(restored), restored.status, restored.retry_after) == (ServerError, 503, 5)
 
 
 # ---------------------------------------------------------------- redirects

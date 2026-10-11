@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from types import TracebackType
 from typing import Any, cast
 
@@ -25,6 +26,28 @@ from .resources import (
 )
 
 __all__ = ["AsyncLettermint"]
+
+
+async def _analytics_pages(
+    transport: AsyncTransport, query: AnalyticsQuery, timeout: float | None
+) -> AsyncIterator[AnalyticsResponse]:
+    """Follows ``pagination.next_cursor`` until it is ``None``, or repeats a cursor."""
+    seen: set[str] = set()
+    start = query.get("cursor")
+    if isinstance(start, str):
+        seen.add(start)
+    current = query
+    while True:
+        page = await transport.request(
+            "POST /analytics", label="analytics_pages", body=current, timeout=timeout
+        )
+        yield cast(AnalyticsResponse, page)
+        pagination = page.get("pagination") if isinstance(page, dict) else None
+        cursor = pagination.get("next_cursor") if isinstance(pagination, dict) else None
+        if not isinstance(cursor, str) or not cursor or cursor in seen:
+            return
+        seen.add(cursor)
+        current = {**query, "cursor": cursor}
 
 
 class AsyncLettermint:
@@ -122,6 +145,25 @@ class AsyncLettermint:
                 "POST /analytics", label="analytics", body=query, timeout=timeout
             ),
         )
+
+    def analytics_pages(
+        self, query: AnalyticsQuery, *, timeout: float | None = None
+    ) -> AsyncIterator[AnalyticsResponse]:
+        """Queries email analytics and follows ``pagination.next_cursor``. Needs ``team_token``.
+
+        Iterates over whole responses, one per request. Each response carries
+        the next page of ``data["breakdown"]`` with its own ``meta`` and
+        ``pagination``.
+
+        A cursor expires 60 seconds after its response, so request the next
+        page promptly; an expired cursor raises
+        :class:`~lettermint.ValidationError`. The query passed in is not changed.
+        """
+        # Check the token, the query and the timeout now, not at the first page.
+        self._transport.prepare(
+            "POST /analytics", label="analytics_pages", body=query, timeout=timeout
+        )
+        return _analytics_pages(self._transport, query, timeout)
 
     async def blocked_file_types(self, *, timeout: float | None = None) -> BlockedFileTypes:
         """The file extensions and MIME types that cannot be attached. Needs ``team_token``."""
