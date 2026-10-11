@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v3.0.0 - 2026-10-04
+
+### What's Changed
+
+* feat(webhooks)!: add Basic Auth and required read flags by @bjarn in https://github.com/lettermint/lettermint-python/pull/32
+* feat!: Lettermint Python SDK 3.0 by @bjarn in https://github.com/lettermint/lettermint-python/pull/33
+
+**Full Changelog**: https://github.com/lettermint/lettermint-python/compare/v2.7.0...v3.0.0
+
+## v2.7.0 - 2026-10-01
+
+### What's Changed
+
+* Use the SDK release bot for changelog updates by @bjarn in https://github.com/lettermint/lettermint-python/pull/26
+* build(deps): bump actions/create-github-app-token from 2.2.2 to 3.2.0 by @dependabot[bot] in https://github.com/lettermint/lettermint-python/pull/27
+* Read the release bot identity from GitHub by @bjarn in https://github.com/lettermint/lettermint-python/pull/28
+* feat(api): align sandbox responses with OpenAPI by @bjarn in https://github.com/lettermint/lettermint-python/pull/29
+* feat(api): add analytics and project report forwarding by @bjarn in https://github.com/lettermint/lettermint-python/pull/30
+* fix(types): expose nullable inbound route domains by @bjarn in https://github.com/lettermint/lettermint-python/pull/31
+
+**Full Changelog**: https://github.com/lettermint/lettermint-python/compare/v2.6.0...v2.7.0
+
 ## v2.6.0 - 2026-09-14
 
 ### What's Changed
