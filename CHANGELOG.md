@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v3.1.0 - 2026-10-11
+
+### What's Changed
+
+* docs: add the v2.7.0 and v3.0.0 changelog entries by @bjarn in https://github.com/lettermint/lettermint-python/pull/35
+* feat: add analytics_pages, retry_after on server errors and the latest API types by @bjarn in https://github.com/lettermint/lettermint-python/pull/34
+
+**Full Changelog**: https://github.com/lettermint/lettermint-python/compare/v3.0.0...v3.1.0
+
 ## v3.0.0 - 2026-10-04
 
 ### What's Changed
@@ -119,7 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v1.0.0 - 2025-12-23
 
-_This release is published under the MIT License._
+*This release is published under the MIT License.*
 
 - Initial release
 
