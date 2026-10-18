@@ -1,8 +1,8 @@
 """The Team API sub-clients of :class:`~lettermint.AsyncLettermint`.
 
-Every method uses the team token, except ``messages.reschedule`` and
-``messages.cancel``, which use the team token when it is set and otherwise
-the sending token.
+Every method uses the team token, except ``messages.reschedule``,
+``messages.cancel`` and ``messages.resend``, which use the team token when it
+is set and otherwise the sending token.
 """
 
 from __future__ import annotations
@@ -47,6 +47,7 @@ from .._generated.types import (
     MessageEventData,
     MessageListData,
     MessageResponse,
+    PendingSendMailResponse,
     ProcessInboundMessageResponse,
     ProjectCreatedData,
     ProjectData,
@@ -54,6 +55,7 @@ from .._generated.types import (
     ProjectMutationResponse,
     ReportForwardingRequest,
     RescheduleMessageRequest,
+    ResendMessageRequest,
     ResendReportForwardingCodeResponse,
     RotateProjectTokenResponse,
     RouteData,
@@ -265,8 +267,8 @@ class AsyncDomains(AsyncResource):
 class AsyncMessages(AsyncResource):
     """Sent and received messages. Team token.
 
-    ``reschedule`` and ``cancel`` also accept the sending token when no team
-    token is configured.
+    ``reschedule``, ``cancel`` and ``resend`` also accept the sending token when
+    no team token is configured.
     """
 
     async def list(
@@ -407,6 +409,34 @@ class AsyncMessages(AsyncResource):
                 "POST /messages/{messageId}/process",
                 "messages.process",
                 path={"messageId": message_id},
+                idempotency_key=idempotency_key,
+                timeout=timeout,
+            ),
+        )
+
+    async def resend(
+        self,
+        message_id: str,
+        body: ResendMessageRequest | None = None,
+        *,
+        idempotency_key: str | None = None,
+        timeout: float | None = None,
+    ) -> PendingSendMailResponse:
+        """Sends the stored content of a sent message again, as a new message with its own ID.
+
+        Without ``body``, every original recipient receives it again; pass
+        ``{"recipients": [...]}`` to choose some of them. The new message links to
+        the original through ``resent_from_message_id``. A message can be resent
+        while its content is retained (otherwise HTTP 410), at most 5 times in 24
+        hours.
+        """
+        return cast(
+            PendingSendMailResponse,
+            await self._request(
+                "POST /messages/{messageId}/resend",
+                "messages.resend",
+                path={"messageId": message_id},
+                **({} if body is None else {"body": body}),
                 idempotency_key=idempotency_key,
                 timeout=timeout,
             ),

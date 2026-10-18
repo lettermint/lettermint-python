@@ -66,7 +66,7 @@ lettermint = Lettermint(
 )
 ```
 
-Each part uses its own token and never falls back to the other one. If the token a method needs is missing, it raises `LettermintConfigError` that names the argument (`domains.list needs team_token; …`), before any request. `lettermint.ping()` uses the team token when it is set, otherwise the sending token. `messages.reschedule()` and `messages.cancel()` accept either token in the same way.
+Each part uses its own token and never falls back to the other one. If the token a method needs is missing, it raises `LettermintConfigError` that names the argument (`domains.list needs team_token; …`), before any request. `lettermint.ping()` uses the team token when it is set, otherwise the sending token. `messages.reschedule()`, `messages.cancel()` and `messages.resend()` accept either token in the same way.
 
 You can also pass a single token string. The SDK chooses its type by the format: `lm_team_` followed by letters and digits is a team token, and `lm_` followed by letters and digits is a sending token. Any other value, such as an SSO verification token (`lm_sso_…`), raises `LettermintConfigError`; pass `sending_token=` or `team_token=` explicitly in that case.
 
@@ -257,10 +257,17 @@ stats = lettermint.stats.retrieve({"from": "2026-10-01", "to": "2026-10-31"})
 html = lettermint.messages.html("message-id")
 ```
 
+`messages.resend()` sends the stored content of a sent message again, as a new message with its own ID. Leave out the body to resend to every original recipient, or choose some of them. It takes an idempotency key like `emails.send()`. A message can be resent while its content is retained (the API answers `410` otherwise), at most 5 times in 24 hours.
+
+```python
+resent = lettermint.messages.resend("message-id", {"recipients": ["jane@example.com"]})
+print(resent["message_id"])  # the new message; it links back through resent_from_message_id
+```
+
 | Attribute | Methods |
 | --- | --- |
 | `domains` | `list`, `iterate`, `create`, `retrieve`, `delete`, `verify_dns_records`, `verify_dns_record`, `update_projects` |
-| `messages` | `list`, `iterate`, `retrieve`, `events`, `iterate_events`, `source`, `html`, `text`, `reschedule`, `cancel`, `process` |
+| `messages` | `list`, `iterate`, `retrieve`, `events`, `iterate_events`, `source`, `html`, `text`, `reschedule`, `cancel`, `process`, `resend` |
 | `projects` | `list`, `iterate`, `create`, `retrieve`, `update`, `delete`, `rotate_token` |
 | `projects.report_forwarding` | `retrieve`, `update`, `delete`, `verify`, `resend_code` |
 | `routes` | `list(project_id)`, `iterate(project_id)`, `create(project_id, …)`, `retrieve`, `update`, `delete`, `verify_inbound_domain` |
