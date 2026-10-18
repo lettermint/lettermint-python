@@ -139,6 +139,11 @@ CALLS: list[tuple[str, tuple[Any, ...], str]] = [
         ("w1", "dl1"),
         "GET /webhooks/{webhookId}/deliveries/{deliveryId}",
     ),
+    (
+        "webhooks.deliveries.retry",
+        ("w1", "dl1"),
+        "POST /webhooks/{webhookId}/deliveries/{deliveryId}/retry",
+    ),
 ]
 
 LAYOUT = {
@@ -191,7 +196,7 @@ LAYOUT = {
         "test",
         "update",
     ],
-    "webhooks.deliveries": ["iterate", "list", "retrieve"],
+    "webhooks.deliveries": ["iterate", "list", "retrieve", "retry"],
     "emails": ["compose", "ping", "send", "send_batch"],
     "": ["analytics", "analytics_pages", "blocked_file_types", "close", "ping"],
 }

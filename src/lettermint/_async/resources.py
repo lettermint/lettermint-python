@@ -57,6 +57,7 @@ from .._generated.types import (
     RescheduleMessageRequest,
     ResendMessageRequest,
     ResendReportForwardingCodeResponse,
+    RetryWebhookDeliveryResponse,
     RotateProjectTokenResponse,
     RouteData,
     RouteListData,
@@ -884,6 +885,25 @@ class AsyncWebhookDeliveries(AsyncResource):
             await self._request(
                 "GET /webhooks/{webhookId}/deliveries/{deliveryId}",
                 "webhooks.deliveries.retrieve",
+                path={"webhookId": webhook_id, "deliveryId": delivery_id},
+                timeout=timeout,
+            ),
+        )
+
+    async def retry(
+        self, webhook_id: str, delivery_id: str, *, timeout: float | None = None
+    ) -> RetryWebhookDeliveryResponse:
+        """Sends the delivery's original payload to the webhook again now.
+
+        The retry counts as a delivery attempt; when it fails with a retryable error, the
+        automatic retries continue. The API answers ``409`` (a :class:`~lettermint.ConflictError`)
+        when the webhook is disabled, the delivery cannot be retried or a retry is in progress.
+        """
+        return cast(
+            RetryWebhookDeliveryResponse,
+            await self._request(
+                "POST /webhooks/{webhookId}/deliveries/{deliveryId}/retry",
+                "webhooks.deliveries.retry",
                 path={"webhookId": webhook_id, "deliveryId": delivery_id},
                 timeout=timeout,
             ),
