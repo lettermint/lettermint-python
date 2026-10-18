@@ -1800,7 +1800,7 @@ MessageData = TypedDict(
         "route_id": Required[str],
         "created_at": Required[str],
         # The ID of the message this message resent. Null when it is not a resend
-        "resent_from_message_id": Required[str | None],
+        "resent_from_message_id": NotRequired[str | None],
     },
 )
 
