@@ -7,7 +7,13 @@ from collections.abc import Sequence
 from typing import Any, cast
 
 from .._core import auth_header
-from .._emails import BaseEmailBuilder, EmailMessage, check_message, initial_message
+from .._emails import (
+    BaseEmailBuilder,
+    BatchEmailMessage,
+    EmailMessage,
+    check_message,
+    initial_message,
+)
 from .._generated.types import SendBatchMailResponse, SendMailResponse
 from ..exceptions import LettermintValidationError
 from .resources import Resource
@@ -66,12 +72,21 @@ class Emails(Resource):
 
     def send_batch(
         self,
-        messages: Sequence[EmailMessage | EmailBuilder],
+        messages: Sequence[EmailMessage | BatchEmailMessage | EmailBuilder],
         *,
         idempotency_key: str | None = None,
         timeout: float | None = None,
     ) -> SendBatchMailResponse:
-        """Sends up to 500 emails in one request. Accepts messages and builders."""
+        """Sends up to 500 emails in one request. Accepts messages and builders.
+
+        ``idempotency_key=`` is the ``Idempotency-Key`` header of the whole request.
+        Each message may also carry its own ``idempotency_key`` (see
+        :data:`~lettermint.BatchEmailMessage`): a retry then returns the original
+        result of every email that was accepted and sends only the rest. Emails are
+        accepted in order. When one fails, the emails before it may already be
+        accepted, and the error's ``details["accepted"]`` lists them (``index`` and
+        ``message_id``).
+        """
         auth_header(self._transport.config, "emails.send_batch", "sending")
         if not isinstance(messages, (list, tuple)):
             raise LettermintValidationError(

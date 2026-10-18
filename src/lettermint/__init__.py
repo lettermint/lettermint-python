@@ -34,7 +34,7 @@ from ._async import (
     AsyncWebhookDeliveries,
     AsyncWebhooks,
 )
-from ._emails import BaseEmailBuilder, EmailAttachment, EmailMessage
+from ._emails import BaseEmailBuilder, BatchEmailMessage, EmailAttachment, EmailMessage
 from ._generated.types import CursorPage
 from ._sync import (
     Domains,
@@ -94,6 +94,7 @@ __all__ = [
     "AsyncWebhooks",
     "AuthenticationError",
     "BaseEmailBuilder",
+    "BatchEmailMessage",
     "ConflictError",
     "CursorPage",
     "Domains",
