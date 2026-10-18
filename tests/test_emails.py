@@ -14,10 +14,13 @@ import pytest
 from lettermint import (
     AsyncEmailBuilder,
     AsyncLettermint,
+    BatchEmailMessage,
+    ConflictError,
     EmailBuilder,
     EmailMessage,
     Lettermint,
     LettermintValidationError,
+    ValidationError,
 )
 
 from .conftest import MESSAGE, MockAPI
@@ -251,6 +254,67 @@ def test_send_batch_names_the_bad_message(api: MockAPI, client: Lettermint) -> N
     assert api.requests == []
 
 
+def test_send_batch_sends_per_email_idempotency_keys(api: MockAPI, client: Lettermint) -> None:
+    api.json(202, [PENDING, PENDING, PENDING])
+    builder = client.emails.compose().from_("a@acme.test").to("b@example.test").subject("B")
+    keyed: BatchEmailMessage = {**MESSAGE, "idempotency_key": "welcome-jane"}
+    from_builder: BatchEmailMessage = {**builder.build(), "idempotency_key": "welcome-b"}
+    client.emails.send_batch([keyed, from_builder, MESSAGE], idempotency_key="batch-1")
+    assert api.last.headers["idempotency-key"] == "batch-1"
+    assert api.body() == [
+        {**MESSAGE, "idempotency_key": "welcome-jane"},
+        {
+            "from": "a@acme.test",
+            "to": ["b@example.test"],
+            "subject": "B",
+            "idempotency_key": "welcome-b",
+        },
+        MESSAGE,
+    ]
+    assert keyed == {**MESSAGE, "idempotency_key": "welcome-jane"}
+    client.emails.send_batch([keyed, builder])
+    assert "idempotency-key" not in api.last.headers
+    assert [item.get("idempotency_key") for item in api.body()] == ["welcome-jane", None]
+    api.json(202, PENDING)
+    client.emails.send(MESSAGE, idempotency_key="single")
+    assert api.last.headers["idempotency-key"] == "single"
+    assert api.body() == MESSAGE
+
+
+def test_the_api_validates_per_email_keys(api: MockAPI, client: Lettermint) -> None:
+    api.json(202, [PENDING, PENDING])
+    client.emails.send_batch(
+        [{**MESSAGE, "idempotency_key": "a"}, {**MESSAGE, "idempotency_key": "a"}]
+    )
+    assert [item["idempotency_key"] for item in api.body()] == ["a", "a"]
+
+
+def test_a_batch_conflict_and_a_partial_failure_keep_the_details(
+    api: MockAPI, client: Lettermint
+) -> None:
+    api.json(
+        409,
+        {"error": {"code": "IDEMPOTENCY_CONFLICT", "message": "Key reused.", "details": None}},
+    )
+    with pytest.raises(ConflictError) as conflict:
+        client.emails.send_batch([{**MESSAGE, "idempotency_key": "a"}])
+    assert conflict.value.code == "IDEMPOTENCY_CONFLICT"
+    accepted = [{"index": 0, "message_id": "m1"}]
+    api.json(
+        422,
+        {
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "The second email is invalid.",
+                "details": {"accepted": accepted},
+            }
+        },
+    )
+    with pytest.raises(ValidationError) as partial:
+        client.emails.send_batch([MESSAGE, MESSAGE])
+    assert partial.value.details == {"accepted": accepted}
+
+
 def test_a_failed_send_leaves_nothing_behind(api: MockAPI, client: Lettermint) -> None:
     api.json(500, {"message": "Server Error"})
     full = (
@@ -319,6 +383,8 @@ async def test_async_tasks_interleaving_setters_stay_isolated(
 async def test_async_send_batch_and_ping(api: MockAPI, aclient: AsyncLettermint) -> None:
     api.json(202, [PENDING])
     assert await aclient.emails.send_batch([aclient.emails.compose(MESSAGE)]) == [PENDING]
+    await aclient.emails.send_batch([{**MESSAGE, "idempotency_key": "k1"}])
+    assert api.body() == [{**MESSAGE, "idempotency_key": "k1"}]
     api.respond(lambda request: httpx.Response(200, text="pong"))
     assert await aclient.emails.ping() == "pong"
 

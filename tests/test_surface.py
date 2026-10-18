@@ -379,6 +379,17 @@ def test_email_message_mirrors_the_generated_request() -> None:
     assert lettermint.EmailMessage.__optional_keys__ == lm_types.SendMailRequest.__optional_keys__
 
 
+def test_batch_email_message_mirrors_the_generated_batch_item() -> None:
+    assert (
+        lettermint.BatchEmailMessage.__required_keys__
+        == lm_types.SendBatchMailItem.__required_keys__
+    )
+    assert (
+        lettermint.BatchEmailMessage.__optional_keys__
+        == lm_types.SendBatchMailItem.__optional_keys__
+    )
+
+
 def test_generated_header() -> None:
     from pathlib import Path
 

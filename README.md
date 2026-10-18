@@ -163,6 +163,21 @@ results = lettermint.emails.send_batch([
 ])
 ```
 
+Give each email an `idempotency_key` to retry a batch safely. If an email with the same key and content was accepted in the last 24 hours, the API returns its original result and does not send it again, so a retry sends only the emails that were not accepted. Keys are 1 to 255 characters and unique within the batch. Reusing a key with different content rejects the whole batch with `ConflictError`. For a builder, add the key to its wire format:
+
+```python
+from lettermint import BatchEmailMessage
+
+john: BatchEmailMessage = {**welcome.to("john@example.com").build(), "idempotency_key": "welcome-john"}
+results = lettermint.emails.send_batch([
+    {"from": "hello@acme.com", "to": ["jane@example.com"], "subject": "Hi Jane", "text": "Hello",
+     "idempotency_key": "welcome-jane"},
+    john,
+])
+```
+
+Emails are accepted in order. When one fails, the emails before it may already be accepted; the error's `details["accepted"]` lists them, each with its `index` in the batch and its `message_id`.
+
 ### Idempotency
 
 Pass an idempotency key to make retries safe. The API processes a key once, so a retry with the same key does not send the email again. The key applies only to the call it is passed to.
@@ -172,6 +187,8 @@ lettermint.emails.send(message, idempotency_key=f"order-{order.id}-confirmation"
 builder.send(idempotency_key="welcome-jane")
 lettermint.emails.send_batch(messages, idempotency_key="newsletter-2026-10")
 ```
+
+This `idempotency_key=` argument is the `Idempotency-Key` header of the request. For a key per email in a batch, see [Batch sending](#batch-sending).
 
 The SDK never retries on its own.
 

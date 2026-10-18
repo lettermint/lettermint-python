@@ -16,6 +16,7 @@ from typing import Any, NoReturn
 from typing_extensions import Buffer, NotRequired, Required, Self, TypedDict
 
 from ._generated.types import (
+    MessageAttachmentInput,
     MessageTagInput,
     SandboxResult,
     SendMailRequest,
@@ -23,7 +24,7 @@ from ._generated.types import (
 )
 from .exceptions import LettermintValidationError
 
-__all__ = ["BaseEmailBuilder", "EmailAttachment", "EmailMessage"]
+__all__ = ["BaseEmailBuilder", "BatchEmailMessage", "EmailAttachment", "EmailMessage"]
 
 _TAG_NAME = re.compile(r"[A-Za-z0-9_-]{1,32}")
 _TAG_VALUE = re.compile(r"[A-Za-z0-9_-]{1,64}")
@@ -76,6 +77,40 @@ EmailMessage = TypedDict(
         "text": NotRequired["str | None"],
         "attachments": NotRequired[list[EmailAttachment]],
         "sandbox_result": NotRequired[SandboxResult],
+    },
+)
+
+#: An :data:`EmailMessage` in a ``send_batch()`` list, with an optional per-email
+#: ``idempotency_key`` (the generated ``SendBatchMailItem``). The key is 1 to 255
+#: characters and unique within the batch. If an email with the same key and content
+#: was accepted in the last 24 hours, the API returns its original result and does not
+#: send it again. Reusing a key with different content, or while the email with that
+#: key is still being processed, rejects the whole batch with ``409 Conflict``. It is
+#: not the ``Idempotency-Key`` header of the request. For a builder, use
+#: ``{**builder.build(), "idempotency_key": key}``.
+BatchEmailMessage = TypedDict(
+    "BatchEmailMessage",
+    {
+        "route": NotRequired[str],
+        "from": Required[str],
+        "to": Required[list[str]],
+        "cc": NotRequired[list[str]],
+        "bcc": NotRequired[list[str]],
+        "reply_to": NotRequired[list[str]],
+        "subject": Required[str],
+        "scheduled_at": NotRequired[str],
+        "headers": NotRequired[dict[str, str]],
+        "metadata": NotRequired[dict[str, str]],
+        "tag": NotRequired["str | None"],
+        "tags": NotRequired[list[MessageTagInput]],
+        "settings": NotRequired[SendMailRequestSettings],
+        "html": NotRequired["str | None"],
+        "text": NotRequired["str | None"],
+        # Also the wire format that ``builder.build()`` returns, so that
+        # ``{**builder.build(), "idempotency_key": key}`` is a batch message.
+        "attachments": NotRequired["list[EmailAttachment] | list[MessageAttachmentInput]"],
+        "sandbox_result": NotRequired[SandboxResult],
+        "idempotency_key": NotRequired[str],
     },
 )
 
