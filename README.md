@@ -293,8 +293,10 @@ print(resent["message_id"])  # the new message; it links back through resent_fro
 | `team` | `retrieve`, `update`, `usage`, `roles` |
 | `team.members` | `list`, `iterate`, `retrieve`, `update_assignment` |
 | `webhooks` | `list`, `iterate`, `create`, `retrieve`, `update`, `delete`, `test`, `regenerate_secret` |
-| `webhooks.deliveries` | `list(webhook_id)`, `iterate(webhook_id)`, `retrieve(webhook_id, delivery_id)` |
+| `webhooks.deliveries` | `list(webhook_id)`, `iterate(webhook_id)`, `retrieve(webhook_id, delivery_id)`, `retry(webhook_id, delivery_id)` |
 | (root) | `ping`, `analytics`, `analytics_pages`, `blocked_file_types` |
+
+`webhooks.deliveries.retry()` sends a delivery's original payload to the webhook again now. The retry counts as a delivery attempt; if it fails with a retryable error, the automatic retries continue. The API answers `409` (`ConflictError`) when the webhook is disabled, the delivery cannot be retried or a retry is already in progress.
 
 ### Query parameters and pagination
 
