@@ -768,7 +768,10 @@ class AsyncTeamMembers(AsyncResource):
     async def list(
         self, query: ListTeamMembersQuery | None = None, *, timeout: float | None = None
     ) -> ListTeamMembersResponse:
-        """Lists team members, one page at a time."""
+        """Lists team members, one page at a time.
+
+        ``{"filter": {"project_id": ...}}`` returns only the members who can access that project.
+        """
         return cast(
             ListTeamMembersResponse,
             await self._request(
@@ -806,6 +809,18 @@ class AsyncTeamMembers(AsyncResource):
                 "team.members.update_assignment",
                 path={"userId": user_id},
                 body=body,
+                timeout=timeout,
+            ),
+        )
+
+    async def remove(self, user_id: str, *, timeout: float | None = None) -> MessageResponse:
+        """Removes a member from the team. The Owner cannot be removed."""
+        return cast(
+            MessageResponse,
+            await self._request(
+                "DELETE /team/members/{userId}",
+                "team.members.remove",
+                path={"userId": user_id},
                 timeout=timeout,
             ),
         )
