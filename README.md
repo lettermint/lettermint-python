@@ -290,7 +290,7 @@ print(resent["message_id"])  # the new message; it links back through resent_fro
 | `routes` | `list(project_id)`, `iterate(project_id)`, `create(project_id, …)`, `retrieve`, `update`, `delete`, `verify_inbound_domain` |
 | `stats` | `retrieve` |
 | `suppressions` | `list`, `iterate`, `create`, `delete` |
-| `team` | `retrieve`, `update`, `usage`, `roles` |
+| `team` | `retrieve`, `update`, `usage`, `roles`, `retrieve_role`, `create_role`, `update_role`, `delete_role`, `duplicate_role` |
 | `team.members` | `list`, `iterate`, `retrieve`, `update_assignment` |
 | `team.invites` | `list`, `iterate`, `retrieve`, `create`, `update`, `revoke` |
 | `webhooks` | `list`, `iterate`, `create`, `retrieve`, `update`, `delete`, `test`, `regenerate_secret` |
@@ -306,6 +306,17 @@ invite = lettermint.team.invites.create({
     "project_access": {"scope": "selected", "project_ids": ["project-id"]},
 })
 lettermint.team.invites.revoke(invite["id"])
+```
+
+`team.create_role()` creates a custom role; it needs a plan with custom roles. The permissions must include the permissions they depend on, and role names are unique. `team.update_role()` replaces a custom role's name, description and permissions, and `team.duplicate_role()` copies a role under a new name (without a `description`, the copy keeps the source role's). Built-in roles cannot be changed or deleted, and the Owner role cannot be duplicated. While a role is still assigned to members, invites or SCIM groups, `team.delete_role()` needs a `replacement_role_id` that receives those assignments:
+
+```python
+role = lettermint.team.create_role({
+    "name": "Support",
+    "description": "Handles customer questions",
+    "permissions": ["support:manage"],
+})
+lettermint.team.delete_role(role["id"], {"replacement_role_id": "member-role-id"})
 ```
 
 `webhooks.deliveries.retry()` sends a delivery's original payload to the webhook again now. The retry counts as a delivery attempt; if it fails with a retryable error, the automatic retries continue. The API answers `409` (`ConflictError`) when the webhook is disabled, the delivery cannot be retried or a retry is already in progress.

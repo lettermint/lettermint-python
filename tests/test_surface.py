@@ -112,6 +112,23 @@ CALLS: list[tuple[str, tuple[Any, ...], str]] = [
     ("team.update", ({"name": "Acme"},), "PUT /team"),
     ("team.usage", (), "GET /team/usage"),
     ("team.roles", (), "GET /team/roles"),
+    ("team.retrieve_role", ("r1",), "GET /team/roles/{roleId}"),
+    (
+        "team.create_role",
+        ({"name": "Support", "permissions": ["support:manage"]},),
+        "POST /team/roles",
+    ),
+    (
+        "team.update_role",
+        ("r1", {"name": "Support", "permissions": ["support:manage"]}),
+        "PUT /team/roles/{roleId}",
+    ),
+    ("team.delete_role", ("r1",), "DELETE /team/roles/{roleId}"),
+    (
+        "team.duplicate_role",
+        ("r1", {"name": "Support copy"}),
+        "POST /team/roles/{roleId}/duplicate",
+    ),
     ("team.members.list", (), "GET /team/members"),
     ("team.members.iterate", (), "GET /team/members"),
     ("team.members.retrieve", ("u1",), "GET /team/members/{userId}"),
@@ -160,13 +177,8 @@ CALLS: list[tuple[str, tuple[Any, ...], str]] = [
     ),
 ]
 
-# Operations without a method yet: added by the next PRs in this stack.
+# Operations without a method yet: added by the next PR in this stack.
 PENDING = {
-    "GET /team/roles/{roleId}",
-    "POST /team/roles",
-    "PUT /team/roles/{roleId}",
-    "DELETE /team/roles/{roleId}",
-    "POST /team/roles/{roleId}/duplicate",
     "DELETE /team/members/{userId}",
 }
 
@@ -208,7 +220,17 @@ LAYOUT = {
     ],
     "stats": ["retrieve"],
     "suppressions": ["create", "delete", "iterate", "list"],
-    "team": ["retrieve", "roles", "update", "usage"],
+    "team": [
+        "create_role",
+        "delete_role",
+        "duplicate_role",
+        "retrieve",
+        "retrieve_role",
+        "roles",
+        "update",
+        "update_role",
+        "usage",
+    ],
     "team.invites": ["create", "iterate", "list", "retrieve", "revoke", "update"],
     "team.members": ["iterate", "list", "retrieve", "update_assignment"],
     "webhooks": [
