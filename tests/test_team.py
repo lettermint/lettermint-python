@@ -1,4 +1,4 @@
-"""``team.invites``: the requests, the token, the bodies and the errors."""
+"""``team.invites`` and the team role methods: the requests, the token, the bodies and the errors."""
 
 from __future__ import annotations
 
@@ -16,9 +16,11 @@ from lettermint import (
 )
 from lettermint.types import (
     CreateTeamInviteData,
+    CreateTeamRoleData,
     ListTeamInvitesResponse,
     MessageResponse,
     TeamInviteData,
+    TeamRoleData,
     UpdateTeamInviteData,
 )
 
@@ -188,3 +190,157 @@ async def test_async_invites(api: MockAPI, aclient: AsyncLettermint) -> None:
     api.json(200, {"message": "Invite revoked."})
     assert await aclient.team.invites.revoke("i1") == {"message": "Invite revoked."}
     assert_team_request(api, "DELETE", "/team/invites/i1")
+
+
+ROLE: TeamRoleData = {
+    "id": "r1",
+    "name": "Support",
+    "description": "Handles customer questions",
+    "system_key": None,
+    "permissions": ["support:manage"],
+    "assignable": True,
+}
+
+NEW_ROLE: CreateTeamRoleData = {
+    "name": "Support",
+    "description": "Handles customer questions",
+    "permissions": ["support:manage"],
+}
+
+
+@pytest.mark.parametrize("description", ["Handles customer questions", None])
+def test_retrieve_role_parses_the_description(
+    api: MockAPI, client: Lettermint, description: str | None
+) -> None:
+    api.json(200, {**ROLE, "description": description})
+    role: TeamRoleData = client.team.retrieve_role("r1")
+    assert role["description"] == description
+    assert role == {**ROLE, "description": description}
+    assert_team_request(api, "GET", "/team/roles/r1")
+    assert api.last.content == b""
+
+
+def test_a_role_without_a_description_still_parses(api: MockAPI, client: Lettermint) -> None:
+    legacy = {key: value for key, value in ROLE.items() if key != "description"}
+    api.json(200, {"data": [legacy]})
+    assert "description" not in client.team.roles()["data"][0]
+
+
+def test_create_role_sends_the_body(api: MockAPI, client: Lettermint) -> None:
+    api.json(201, ROLE)
+    role: TeamRoleData = client.team.create_role(NEW_ROLE)
+    assert role == ROLE
+    assert_team_request(api, "POST", "/team/roles")
+    assert api.last.headers["content-type"] == "application/json"
+    assert api.body() == NEW_ROLE
+    client.team.create_role({"name": "Support", "permissions": ["support:manage"]})
+    assert api.body() == {"name": "Support", "permissions": ["support:manage"]}
+    client.team.create_role({**NEW_ROLE, "description": None})
+    assert api.body() == {**NEW_ROLE, "description": None}
+
+
+def test_update_role_replaces_it(api: MockAPI, client: Lettermint) -> None:
+    api.json(200, ROLE)
+    role: TeamRoleData = client.team.update_role("r1", NEW_ROLE)
+    assert role == ROLE
+    assert_team_request(api, "PUT", "/team/roles/r1")
+    assert api.body() == NEW_ROLE
+
+
+def test_delete_role_without_a_replacement_sends_no_query(api: MockAPI, client: Lettermint) -> None:
+    api.json(200, {"message": "Role deleted."})
+    result: MessageResponse = client.team.delete_role("r1")
+    assert result == {"message": "Role deleted."}
+    assert_team_request(api, "DELETE", "/team/roles/r1")
+    assert api.last.url.query == b""
+    assert api.last.content == b""
+    client.team.delete_role("r1", {})
+    assert api.last.url.query == b""
+    client.team.delete_role("r1", {"replacement_role_id": None})
+    assert api.last.url.query == b""
+
+
+def test_delete_role_with_a_replacement(api: MockAPI, client: Lettermint) -> None:
+    api.json(200, {"message": "Role deleted."})
+    client.team.delete_role("r1", {"replacement_role_id": "r2"})
+    assert_team_request(api, "DELETE", "/team/roles/r1?replacement_role_id=r2")
+    assert api.last.url.params["replacement_role_id"] == "r2"
+
+
+@pytest.mark.parametrize(
+    "body", [{"name": "Support copy"}, {"name": "Support copy", "description": None}]
+)
+def test_duplicate_role(api: MockAPI, client: Lettermint, body: Any) -> None:
+    api.json(201, {**ROLE, "id": "r2", "name": "Support copy"})
+    role: TeamRoleData = client.team.duplicate_role("r1", body)
+    assert (role["id"], role["name"]) == ("r2", "Support copy")
+    assert_team_request(api, "POST", "/team/roles/r1/duplicate")
+    assert api.body() == body
+
+
+@pytest.mark.parametrize(
+    ("call", "label"),
+    [
+        (lambda c, i: c.team.retrieve_role(i), "retrieve_role"),
+        (lambda c, i: c.team.update_role(i, NEW_ROLE), "update_role"),
+        (lambda c, i: c.team.delete_role(i), "delete_role"),
+        (lambda c, i: c.team.duplicate_role(i, {"name": "Copy"}), "duplicate_role"),
+    ],
+)
+def test_role_ids_are_checked_and_encoded(
+    api: MockAPI, client: Lettermint, call: Any, label: str
+) -> None:
+    api.json(200, ROLE)
+    for invalid in ("", ".."):
+        with pytest.raises(LettermintConfigError, match=rf"^team\.{label}: roleId"):
+            call(client, invalid)
+    assert api.requests == []
+    call(client, "a/b")
+    assert api.last.url.raw_path.startswith(b"/v1/team/roles/a%2Fb")
+
+
+def test_role_methods_need_the_team_token(api: MockAPI) -> None:
+    sending_only = Lettermint(SENDING_TOKEN, base_url=BASE_URL, http_client=api.sync_client())
+    with pytest.raises(LettermintConfigError, match=r"^team\.create_role needs team_token"):
+        sending_only.team.create_role(NEW_ROLE)
+    with pytest.raises(LettermintConfigError, match=r"^team\.delete_role needs team_token"):
+        sending_only.team.delete_role("r1")
+    assert api.requests == []
+
+
+def test_a_role_conflict_is_a_conflict_error(api: MockAPI, client: Lettermint) -> None:
+    body = {"error": {"code": "built_in_role_immutable", "message": "Built-in roles are fixed."}}
+    api.json(409, body)
+    with pytest.raises(ConflictError) as caught:
+        client.team.update_role("r1", NEW_ROLE)
+    assert (caught.value.status, caught.value.code, caught.value.body) == (
+        409,
+        "built_in_role_immutable",
+        body,
+    )
+
+
+def test_a_role_still_in_use_is_a_validation_error(api: MockAPI, client: Lettermint) -> None:
+    body = {
+        "message": "A replacement role is required.",
+        "errors": {"replacement_role_id": ["A replacement role is required."]},
+    }
+    api.json(422, body)
+    with pytest.raises(ValidationError) as caught:
+        client.team.delete_role("r1")
+    assert caught.value.errors == body["errors"]
+
+
+@pytest.mark.anyio
+async def test_async_roles(api: MockAPI, aclient: AsyncLettermint) -> None:
+    api.json(201, ROLE)
+    role: TeamRoleData = await aclient.team.create_role(NEW_ROLE)
+    assert role == ROLE
+    assert_team_request(api, "POST", "/team/roles")
+    assert api.body() == NEW_ROLE
+    api.json(200, {"message": "Role deleted."})
+    await aclient.team.delete_role("r1", {"replacement_role_id": "r2"})
+    assert_team_request(api, "DELETE", "/team/roles/r1?replacement_role_id=r2")
+    api.json(201, ROLE)
+    await aclient.team.duplicate_role("r1", {"name": "Copy"})
+    assert_team_request(api, "POST", "/team/roles/r1/duplicate")

@@ -14,11 +14,14 @@ from typing import Any, cast
 from .._generated.operations import OPERATIONS
 from .._generated.types import (
     CreateTeamInviteData,
+    CreateTeamRoleData,
     DeleteSuppressionResponse,
+    DeleteTeamRoleQuery,
     DnsVerificationSuccessResponse,
     DomainData,
     DomainListData,
     DomainMutationResponse,
+    DuplicateTeamRoleData,
     GetDomainQuery,
     GetProjectQuery,
     GetReportForwardingResponse,
@@ -78,6 +81,7 @@ from .._generated.types import (
     TeamInviteData,
     TeamMemberData,
     TeamMutationResponse,
+    TeamRoleData,
     TeamRoleListResponse,
     TeamUsageDetailData,
     TestWebhookResponse,
@@ -88,6 +92,7 @@ from .._generated.types import (
     UpdateTeamData,
     UpdateTeamInviteData,
     UpdateTeamMemberAssignmentData,
+    UpdateTeamRoleData,
     UpdateWebhookData,
     VerifyReportForwardingRequest,
     VerifyReportForwardingResponse,
@@ -922,6 +927,89 @@ class AsyncTeam(AsyncResource):
         return cast(
             TeamRoleListResponse,
             await self._request("GET /team/roles", "team.roles", timeout=timeout),
+        )
+
+    async def retrieve_role(self, role_id: str, *, timeout: float | None = None) -> TeamRoleData:
+        return cast(
+            TeamRoleData,
+            await self._request(
+                "GET /team/roles/{roleId}",
+                "team.retrieve_role",
+                path={"roleId": role_id},
+                timeout=timeout,
+            ),
+        )
+
+    async def create_role(
+        self, body: CreateTeamRoleData, *, timeout: float | None = None
+    ) -> TeamRoleData:
+        """Creates a custom role.
+
+        Needs a plan with custom roles. The permissions must include the permissions they depend
+        on, and role names are unique within the team.
+        """
+        return cast(
+            TeamRoleData,
+            await self._request("POST /team/roles", "team.create_role", body=body, timeout=timeout),
+        )
+
+    async def update_role(
+        self, role_id: str, body: UpdateTeamRoleData, *, timeout: float | None = None
+    ) -> TeamRoleData:
+        """Replaces the name, description and permissions of a custom role.
+
+        Built-in roles cannot be changed.
+        """
+        return cast(
+            TeamRoleData,
+            await self._request(
+                "PUT /team/roles/{roleId}",
+                "team.update_role",
+                path={"roleId": role_id},
+                body=body,
+                timeout=timeout,
+            ),
+        )
+
+    async def delete_role(
+        self,
+        role_id: str,
+        query: DeleteTeamRoleQuery | None = None,
+        *,
+        timeout: float | None = None,
+    ) -> MessageResponse:
+        """Deletes a custom role. Built-in roles cannot be deleted.
+
+        While the role is still assigned to members, invites or SCIM groups, pass
+        ``{"replacement_role_id": ...}``: the role that receives those assignments.
+        """
+        return cast(
+            MessageResponse,
+            await self._request(
+                "DELETE /team/roles/{roleId}",
+                "team.delete_role",
+                path={"roleId": role_id},
+                query=query,
+                timeout=timeout,
+            ),
+        )
+
+    async def duplicate_role(
+        self, role_id: str, body: DuplicateTeamRoleData, *, timeout: float | None = None
+    ) -> TeamRoleData:
+        """Copies a role under a new name. The Owner role cannot be duplicated.
+
+        Without a ``description``, the copy keeps the description of the source role.
+        """
+        return cast(
+            TeamRoleData,
+            await self._request(
+                "POST /team/roles/{roleId}/duplicate",
+                "team.duplicate_role",
+                path={"roleId": role_id},
+                body=body,
+                timeout=timeout,
+            ),
         )
 
 
