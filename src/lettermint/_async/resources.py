@@ -13,6 +13,7 @@ from typing import Any, cast
 
 from .._generated.operations import OPERATIONS
 from .._generated.types import (
+    CreateTeamInviteData,
     DeleteSuppressionResponse,
     DnsVerificationSuccessResponse,
     DomainData,
@@ -37,6 +38,8 @@ from .._generated.types import (
     ListRoutesResponse,
     ListSuppressionsQuery,
     ListSuppressionsResponse,
+    ListTeamInvitesQuery,
+    ListTeamInvitesResponse,
     ListTeamMembersQuery,
     ListTeamMembersResponse,
     ListWebhookDeliveriesQuery,
@@ -72,6 +75,7 @@ from .._generated.types import (
     SuppressedRecipientData,
     SuppressionStoreResponse,
     TeamData,
+    TeamInviteData,
     TeamMemberData,
     TeamMutationResponse,
     TeamRoleListResponse,
@@ -82,6 +86,7 @@ from .._generated.types import (
     UpdateReportForwardingResponse,
     UpdateRouteData,
     UpdateTeamData,
+    UpdateTeamInviteData,
     UpdateTeamMemberAssignmentData,
     UpdateWebhookData,
     VerifyReportForwardingRequest,
@@ -106,6 +111,7 @@ __all__ = [
     "AsyncStats",
     "AsyncSuppressions",
     "AsyncTeam",
+    "AsyncTeamInvites",
     "AsyncTeamMembers",
     "AsyncWebhookDeliveries",
     "AsyncWebhooks",
@@ -800,6 +806,84 @@ class AsyncTeamMembers(AsyncResource):
         )
 
 
+class AsyncTeamInvites(AsyncResource):
+    """Pending invitations to the team. Team token."""
+
+    async def list(
+        self, query: ListTeamInvitesQuery | None = None, *, timeout: float | None = None
+    ) -> ListTeamInvitesResponse:
+        """Lists pending invites, one page at a time."""
+        return cast(
+            ListTeamInvitesResponse,
+            await self._request(
+                "GET /team/invites", "team.invites.list", query=query, timeout=timeout
+            ),
+        )
+
+    def iterate(
+        self, query: ListTeamInvitesQuery | None = None, *, timeout: float | None = None
+    ) -> AsyncIterator[TeamInviteData]:
+        """Iterates over every pending invite, following ``next_cursor``."""
+        return self._paginate(
+            "GET /team/invites", "team.invites.iterate", query=query, timeout=timeout
+        )
+
+    async def retrieve(self, invite_id: str, *, timeout: float | None = None) -> TeamInviteData:
+        return cast(
+            TeamInviteData,
+            await self._request(
+                "GET /team/invites/{inviteId}",
+                "team.invites.retrieve",
+                path={"inviteId": invite_id},
+                timeout=timeout,
+            ),
+        )
+
+    async def create(
+        self, body: CreateTeamInviteData, *, timeout: float | None = None
+    ) -> TeamInviteData:
+        """Invites a person to the team and emails the invitation.
+
+        The team needs a free seat, and the Owner role cannot be assigned.
+        """
+        return cast(
+            TeamInviteData,
+            await self._request(
+                "POST /team/invites", "team.invites.create", body=body, timeout=timeout
+            ),
+        )
+
+    async def update(
+        self, invite_id: str, body: UpdateTeamInviteData, *, timeout: float | None = None
+    ) -> TeamInviteData:
+        """Replaces the email address, role and project access of a pending invite.
+
+        A new invitation email is sent only when the address changes.
+        """
+        return cast(
+            TeamInviteData,
+            await self._request(
+                "PUT /team/invites/{inviteId}",
+                "team.invites.update",
+                path={"inviteId": invite_id},
+                body=body,
+                timeout=timeout,
+            ),
+        )
+
+    async def revoke(self, invite_id: str, *, timeout: float | None = None) -> MessageResponse:
+        """Revokes a pending invite."""
+        return cast(
+            MessageResponse,
+            await self._request(
+                "DELETE /team/invites/{inviteId}",
+                "team.invites.revoke",
+                path={"inviteId": invite_id},
+                timeout=timeout,
+            ),
+        )
+
+
 class AsyncTeam(AsyncResource):
     """The team of the token. Team token."""
 
@@ -807,6 +891,8 @@ class AsyncTeam(AsyncResource):
         super().__init__(transport)
         #: Team members.
         self.members = AsyncTeamMembers(transport)
+        #: Pending invitations to the team.
+        self.invites = AsyncTeamInvites(transport)
 
     async def retrieve(
         self, query: GetTeamQuery | None = None, *, timeout: float | None = None

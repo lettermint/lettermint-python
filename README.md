@@ -292,9 +292,21 @@ print(resent["message_id"])  # the new message; it links back through resent_fro
 | `suppressions` | `list`, `iterate`, `create`, `delete` |
 | `team` | `retrieve`, `update`, `usage`, `roles` |
 | `team.members` | `list`, `iterate`, `retrieve`, `update_assignment` |
+| `team.invites` | `list`, `iterate`, `retrieve`, `create`, `update`, `revoke` |
 | `webhooks` | `list`, `iterate`, `create`, `retrieve`, `update`, `delete`, `test`, `regenerate_secret` |
 | `webhooks.deliveries` | `list(webhook_id)`, `iterate(webhook_id)`, `retrieve(webhook_id, delivery_id)`, `retry(webhook_id, delivery_id)` |
 | (root) | `ping`, `analytics`, `analytics_pages`, `blocked_file_types` |
+
+`team.invites.create()` invites a person to the team with a role and project access, and emails the invitation. The team needs a free seat, and the Owner role cannot be assigned. `team.invites.update()` replaces the email address, role and project access of a pending invite; it sends a new email only when the address changes. `team.invites.revoke()` revokes it.
+
+```python
+invite = lettermint.team.invites.create({
+    "email": "jane@acme.com",
+    "role_id": "role-id",
+    "project_access": {"scope": "selected", "project_ids": ["project-id"]},
+})
+lettermint.team.invites.revoke(invite["id"])
+```
 
 `webhooks.deliveries.retry()` sends a delivery's original payload to the webhook again now. The retry counts as a delivery attempt; if it fails with a retryable error, the automatic retries continue. The API answers `409` (`ConflictError`) when the webhook is disabled, the delivery cannot be retried or a retry is already in progress.
 

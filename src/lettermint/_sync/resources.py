@@ -14,6 +14,7 @@ from typing import Any, cast
 
 from .._generated.operations import OPERATIONS
 from .._generated.types import (
+    CreateTeamInviteData,
     DeleteSuppressionResponse,
     DnsVerificationSuccessResponse,
     DomainData,
@@ -38,6 +39,8 @@ from .._generated.types import (
     ListRoutesResponse,
     ListSuppressionsQuery,
     ListSuppressionsResponse,
+    ListTeamInvitesQuery,
+    ListTeamInvitesResponse,
     ListTeamMembersQuery,
     ListTeamMembersResponse,
     ListWebhookDeliveriesQuery,
@@ -73,6 +76,7 @@ from .._generated.types import (
     SuppressedRecipientData,
     SuppressionStoreResponse,
     TeamData,
+    TeamInviteData,
     TeamMemberData,
     TeamMutationResponse,
     TeamRoleListResponse,
@@ -83,6 +87,7 @@ from .._generated.types import (
     UpdateReportForwardingResponse,
     UpdateRouteData,
     UpdateTeamData,
+    UpdateTeamInviteData,
     UpdateTeamMemberAssignmentData,
     UpdateWebhookData,
     VerifyReportForwardingRequest,
@@ -107,6 +112,7 @@ __all__ = [
     "Stats",
     "Suppressions",
     "Team",
+    "TeamInvites",
     "TeamMembers",
     "WebhookDeliveries",
     "Webhooks",
@@ -801,6 +807,84 @@ class TeamMembers(Resource):
         )
 
 
+class TeamInvites(Resource):
+    """Pending invitations to the team. Team token."""
+
+    def list(
+        self, query: ListTeamInvitesQuery | None = None, *, timeout: float | None = None
+    ) -> ListTeamInvitesResponse:
+        """Lists pending invites, one page at a time."""
+        return cast(
+            ListTeamInvitesResponse,
+            self._request(
+                "GET /team/invites", "team.invites.list", query=query, timeout=timeout
+            ),
+        )
+
+    def iterate(
+        self, query: ListTeamInvitesQuery | None = None, *, timeout: float | None = None
+    ) -> Iterator[TeamInviteData]:
+        """Iterates over every pending invite, following ``next_cursor``."""
+        return self._paginate(
+            "GET /team/invites", "team.invites.iterate", query=query, timeout=timeout
+        )
+
+    def retrieve(self, invite_id: str, *, timeout: float | None = None) -> TeamInviteData:
+        return cast(
+            TeamInviteData,
+            self._request(
+                "GET /team/invites/{inviteId}",
+                "team.invites.retrieve",
+                path={"inviteId": invite_id},
+                timeout=timeout,
+            ),
+        )
+
+    def create(
+        self, body: CreateTeamInviteData, *, timeout: float | None = None
+    ) -> TeamInviteData:
+        """Invites a person to the team and emails the invitation.
+
+        The team needs a free seat, and the Owner role cannot be assigned.
+        """
+        return cast(
+            TeamInviteData,
+            self._request(
+                "POST /team/invites", "team.invites.create", body=body, timeout=timeout
+            ),
+        )
+
+    def update(
+        self, invite_id: str, body: UpdateTeamInviteData, *, timeout: float | None = None
+    ) -> TeamInviteData:
+        """Replaces the email address, role and project access of a pending invite.
+
+        A new invitation email is sent only when the address changes.
+        """
+        return cast(
+            TeamInviteData,
+            self._request(
+                "PUT /team/invites/{inviteId}",
+                "team.invites.update",
+                path={"inviteId": invite_id},
+                body=body,
+                timeout=timeout,
+            ),
+        )
+
+    def revoke(self, invite_id: str, *, timeout: float | None = None) -> MessageResponse:
+        """Revokes a pending invite."""
+        return cast(
+            MessageResponse,
+            self._request(
+                "DELETE /team/invites/{inviteId}",
+                "team.invites.revoke",
+                path={"inviteId": invite_id},
+                timeout=timeout,
+            ),
+        )
+
+
 class Team(Resource):
     """The team of the token. Team token."""
 
@@ -808,6 +892,8 @@ class Team(Resource):
         super().__init__(transport)
         #: Team members.
         self.members = TeamMembers(transport)
+        #: Pending invitations to the team.
+        self.invites = TeamInvites(transport)
 
     def retrieve(
         self, query: GetTeamQuery | None = None, *, timeout: float | None = None
