@@ -1,4 +1,4 @@
-"""``team.invites`` and the team role methods: the requests, the token, the bodies and the errors."""
+"""``team.invites``, the team role methods and ``team.members.remove`` with the project filter."""
 
 from __future__ import annotations
 
@@ -344,3 +344,83 @@ async def test_async_roles(api: MockAPI, aclient: AsyncLettermint) -> None:
     api.json(201, ROLE)
     await aclient.team.duplicate_role("r1", {"name": "Copy"})
     assert_team_request(api, "POST", "/team/roles/r1/duplicate")
+
+
+MEMBER = {
+    "id": "u1",
+    "name": "Jane",
+    "email": "jane@acme.test",
+    "role": {"id": "r1", "name": "Member"},
+    "project_access": {"scope": "all", "projects": []},
+    "joined_at": "2026-10-01T09:00:00Z",
+}
+
+
+def test_remove_member(api: MockAPI, client: Lettermint) -> None:
+    api.json(200, {"message": "Member removed."})
+    result: MessageResponse = client.team.members.remove("u1")
+    assert result == {"message": "Member removed."}
+    assert_team_request(api, "DELETE", "/team/members/u1")
+    assert api.last.content == b""
+
+
+def test_remove_member_checks_and_encodes_the_id(api: MockAPI, client: Lettermint) -> None:
+    api.json(200, {"message": "Member removed."})
+    for invalid in ("", ".."):
+        with pytest.raises(LettermintConfigError, match=r"^team\.members\.remove: userId"):
+            client.team.members.remove(invalid)
+    assert api.requests == []
+    client.team.members.remove("a/b")
+    assert api.last.url.raw_path == b"/v1/team/members/a%2Fb"
+
+
+def test_remove_member_needs_the_team_token(api: MockAPI) -> None:
+    sending_only = Lettermint(SENDING_TOKEN, base_url=BASE_URL, http_client=api.sync_client())
+    with pytest.raises(LettermintConfigError, match=r"^team\.members\.remove needs team_token"):
+        sending_only.team.members.remove("u1")
+    assert api.requests == []
+
+
+def test_removing_the_owner_is_a_conflict_error(api: MockAPI, client: Lettermint) -> None:
+    body = {"error": {"code": "owner_protected", "message": "The Owner cannot be removed."}}
+    api.json(409, body)
+    with pytest.raises(ConflictError) as caught:
+        client.team.members.remove("u1")
+    assert (caught.value.status, caught.value.code, caught.value.body) == (
+        409,
+        "owner_protected",
+        body,
+    )
+
+
+def test_members_can_be_filtered_by_project(api: MockAPI, client: Lettermint) -> None:
+    api.json(200, {"data": [MEMBER], "next_cursor": None})
+    page = client.team.members.list({"filter": {"project_id": "p1"}, "page": {"size": 5}})
+    assert page["data"] == [MEMBER]
+    assert api.last.url.params["filter[project_id]"] == "p1"
+    assert api.last.url.params["page[size]"] == "5"
+    assert list(client.team.members.iterate({"filter": {"project_id": "p1"}})) == [MEMBER]
+    assert_team_request(api, "GET", "/team/members?filter%5Bproject_id%5D=p1")
+
+
+def test_member_filter_follows_every_page(api: MockAPI, client: Lettermint) -> None:
+    pages = {
+        None: {"data": [MEMBER], "next_cursor": "c2"},
+        "c2": {"data": [{**MEMBER, "id": "u2"}], "next_cursor": None},
+    }
+    api.respond(
+        lambda request: httpx.Response(200, json=pages[request.url.params.get("page[cursor]")])
+    )
+    members = list(client.team.members.iterate({"filter": {"project_id": "p1"}}))
+    assert [member["id"] for member in members] == ["u1", "u2"]
+    assert all(r.url.params["filter[project_id]"] == "p1" for r in api.requests)
+
+
+@pytest.mark.anyio
+async def test_async_remove_member(api: MockAPI, aclient: AsyncLettermint) -> None:
+    api.json(200, {"message": "Member removed."})
+    assert await aclient.team.members.remove("u1") == {"message": "Member removed."}
+    assert_team_request(api, "DELETE", "/team/members/u1")
+    api.json(200, {"data": [MEMBER], "next_cursor": None})
+    await aclient.team.members.list({"filter": {"project_id": "p1"}})
+    assert_team_request(api, "GET", "/team/members?filter%5Bproject_id%5D=p1")

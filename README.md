@@ -291,7 +291,7 @@ print(resent["message_id"])  # the new message; it links back through resent_fro
 | `stats` | `retrieve` |
 | `suppressions` | `list`, `iterate`, `create`, `delete` |
 | `team` | `retrieve`, `update`, `usage`, `roles`, `retrieve_role`, `create_role`, `update_role`, `delete_role`, `duplicate_role` |
-| `team.members` | `list`, `iterate`, `retrieve`, `update_assignment` |
+| `team.members` | `list`, `iterate`, `retrieve`, `update_assignment`, `remove` |
 | `team.invites` | `list`, `iterate`, `retrieve`, `create`, `update`, `revoke` |
 | `webhooks` | `list`, `iterate`, `create`, `retrieve`, `update`, `delete`, `test`, `regenerate_secret` |
 | `webhooks.deliveries` | `list(webhook_id)`, `iterate(webhook_id)`, `retrieve(webhook_id, delivery_id)`, `retry(webhook_id, delivery_id)` |
@@ -306,6 +306,13 @@ invite = lettermint.team.invites.create({
     "project_access": {"scope": "selected", "project_ids": ["project-id"]},
 })
 lettermint.team.invites.revoke(invite["id"])
+```
+
+`team.members.remove()` removes a member from the team; the Owner cannot be removed. `team.members.list()` and `team.members.iterate()` take a `filter[project_id]` that returns only the members who can access that project: members with access to all projects and members selected for it.
+
+```python
+for member in lettermint.team.members.iterate({"filter": {"project_id": "project-id"}}):
+    print(member["email"])
 ```
 
 `team.create_role()` creates a custom role; it needs a plan with custom roles. The permissions must include the permissions they depend on, and role names are unique. `team.update_role()` replaces a custom role's name, description and permissions, and `team.duplicate_role()` copies a role under a new name (without a `description`, the copy keeps the source role's). Built-in roles cannot be changed or deleted, and the Owner role cannot be duplicated. While a role is still assigned to members, invites or SCIM groups, `team.delete_role()` needs a `replacement_role_id` that receives those assignments:
