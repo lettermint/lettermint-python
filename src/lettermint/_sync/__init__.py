@@ -6,6 +6,7 @@ from .emails import EmailBuilder, Emails
 from .resources import (
     Domains,
     Messages,
+    ProjectApiTokens,
     Projects,
     ReportForwarding,
     Resource,
@@ -25,6 +26,7 @@ __all__ = [
     "Emails",
     "Lettermint",
     "Messages",
+    "ProjectApiTokens",
     "Projects",
     "ReportForwarding",
     "Resource",

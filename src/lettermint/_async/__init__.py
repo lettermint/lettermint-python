@@ -5,6 +5,7 @@ from .emails import AsyncEmailBuilder, AsyncEmails
 from .resources import (
     AsyncDomains,
     AsyncMessages,
+    AsyncProjectApiTokens,
     AsyncProjects,
     AsyncReportForwarding,
     AsyncResource,
@@ -24,6 +25,7 @@ __all__ = [
     "AsyncEmails",
     "AsyncLettermint",
     "AsyncMessages",
+    "AsyncProjectApiTokens",
     "AsyncProjects",
     "AsyncReportForwarding",
     "AsyncResource",

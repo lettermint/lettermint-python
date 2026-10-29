@@ -35,6 +35,8 @@ from .._generated.types import (
     ListMessageEventsResponse,
     ListMessagesQuery,
     ListMessagesResponse,
+    ListProjectApiTokensQuery,
+    ListProjectApiTokensResponse,
     ListProjectsQuery,
     ListProjectsResponse,
     ListRoutesQuery,
@@ -55,6 +57,8 @@ from .._generated.types import (
     MessageResponse,
     PendingSendMailResponse,
     ProcessInboundMessageResponse,
+    ProjectApiToken,
+    ProjectApiTokenCreatedResponse,
     ProjectCreatedData,
     ProjectData,
     ProjectListData,
@@ -71,6 +75,7 @@ from .._generated.types import (
     ScheduledMessage,
     StatsData,
     StoreDomainData,
+    StoreProjectApiTokenData,
     StoreProjectData,
     StoreRouteData,
     StoreSuppressionData,
@@ -110,6 +115,7 @@ from ..exceptions import UnexpectedResponseError
 __all__ = [
     "AsyncDomains",
     "AsyncMessages",
+    "AsyncProjectApiTokens",
     "AsyncProjects",
     "AsyncReportForwarding",
     "AsyncRoutes",
@@ -522,6 +528,83 @@ class AsyncReportForwarding(AsyncResource):
         )
 
 
+class AsyncProjectApiTokens(AsyncResource):
+    """Project API tokens (sending tokens) of a project. Team token."""
+
+    async def list(
+        self,
+        project_id: str,
+        query: ListProjectApiTokensQuery | None = None,
+        *,
+        timeout: float | None = None,
+    ) -> ListProjectApiTokensResponse:
+        """Lists the API tokens of a project, one page at a time.
+
+        The list holds token metadata only; a token's value is only returned when it is created.
+        """
+        return cast(
+            ListProjectApiTokensResponse,
+            await self._request(
+                "GET /projects/{projectId}/api-tokens",
+                "projects.api_tokens.list",
+                path={"projectId": project_id},
+                query=query,
+                timeout=timeout,
+            ),
+        )
+
+    def iterate(
+        self,
+        project_id: str,
+        query: ListProjectApiTokensQuery | None = None,
+        *,
+        timeout: float | None = None,
+    ) -> AsyncIterator[ProjectApiToken]:
+        """Iterates over every API token of a project, following ``next_cursor``."""
+        return self._paginate(
+            "GET /projects/{projectId}/api-tokens",
+            "projects.api_tokens.iterate",
+            path={"projectId": project_id},
+            query=query,
+            timeout=timeout,
+        )
+
+    async def create(
+        self, project_id: str, body: StoreProjectApiTokenData, *, timeout: float | None = None
+    ) -> ProjectApiTokenCreatedResponse:
+        """Creates an API token for a project.
+
+        The response holds the token value (``data["token"]``) only once: store it, it cannot be
+        read again. Use it to send through the API, or as the SMTP password when SMTP is enabled
+        for the project (``smtp`` then holds the SMTP settings, otherwise ``None``).
+        ``"short_token": True`` creates a shorter token for devices that limit password length.
+        """
+        return cast(
+            ProjectApiTokenCreatedResponse,
+            await self._request(
+                "POST /projects/{projectId}/api-tokens",
+                "projects.api_tokens.create",
+                path={"projectId": project_id},
+                body=body,
+                timeout=timeout,
+            ),
+        )
+
+    async def delete(
+        self, project_id: str, token_id: str, *, timeout: float | None = None
+    ) -> MessageResponse:
+        """Deletes an API token of a project. The token stops working immediately."""
+        return cast(
+            MessageResponse,
+            await self._request(
+                "DELETE /projects/{projectId}/api-tokens/{tokenId}",
+                "projects.api_tokens.delete",
+                path={"projectId": project_id, "tokenId": token_id},
+                timeout=timeout,
+            ),
+        )
+
+
 class AsyncProjects(AsyncResource):
     """Projects. Team token."""
 
@@ -529,6 +612,8 @@ class AsyncProjects(AsyncResource):
         super().__init__(transport)
         #: Report forwarding of a project.
         self.report_forwarding = AsyncReportForwarding(transport)
+        #: API tokens of a project.
+        self.api_tokens = AsyncProjectApiTokens(transport)
 
     async def list(
         self, query: ListProjectsQuery | None = None, *, timeout: float | None = None
@@ -596,7 +681,10 @@ class AsyncProjects(AsyncResource):
     async def rotate_token(
         self, project_id: str, *, timeout: float | None = None
     ) -> RotateProjectTokenResponse:
-        """Rotates the project's legacy sending token. Deprecated by the API."""
+        """Rotates the project's legacy sending token. Deprecated by the API.
+
+        Use ``api_tokens`` to list, create or delete specific tokens.
+        """
         return cast(
             RotateProjectTokenResponse,
             await self._request(
