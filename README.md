@@ -294,6 +294,7 @@ print(resent["message_id"])  # the new message; it links back through resent_fro
 | `team` | `retrieve`, `update`, `usage`, `roles`, `retrieve_role`, `create_role`, `update_role`, `delete_role`, `duplicate_role` |
 | `team.members` | `list`, `iterate`, `retrieve`, `update_assignment`, `remove` |
 | `team.invites` | `list`, `iterate`, `retrieve`, `create`, `update`, `revoke` |
+| `team.api_tokens` | `list`, `iterate`, `create`, `delete` |
 | `webhooks` | `list`, `iterate`, `create`, `retrieve`, `update`, `delete`, `test`, `regenerate_secret` |
 | `webhooks.deliveries` | `list(webhook_id)`, `iterate(webhook_id)`, `retrieve(webhook_id, delivery_id)`, `retry(webhook_id, delivery_id)` |
 | (root) | `ping`, `analytics`, `analytics_pages`, `blocked_file_types` |
@@ -315,6 +316,18 @@ lettermint.team.invites.revoke(invite["id"])
 created = lettermint.projects.api_tokens.create("project-id", {"name": "Checkout service"})
 print(created["data"]["token"])  # shown once
 lettermint.projects.api_tokens.delete("project-id", created["data"]["id"])
+```
+
+`team.api_tokens.create()` creates a team API token. The new token can only have abilities that the requesting token has. It copies the requesting token's IP allowlist, and it can't outlive the requesting token: `expires_at` defaults to, and can't be later than, its expiry. The value (`data["token"]`) is only returned once, so store it right away. `team.api_tokens.delete()` stops a token from working immediately; a token can only delete tokens whose abilities it also has.
+
+```python
+created = lettermint.team.api_tokens.create({
+    "name": "Deploys",
+    "abilities": ["read:domains"],
+    "expires_at": "2027-01-01T00:00:00Z",
+})
+print(created["data"]["token"])  # shown once
+lettermint.team.api_tokens.delete(created["data"]["id"])
 ```
 
 `team.members.remove()` removes a member from the team; the Owner cannot be removed. `team.members.list()` and `team.members.iterate()` take a `filter[project_id]` that returns only the members who can access that project: members with access to all projects and members selected for it.
