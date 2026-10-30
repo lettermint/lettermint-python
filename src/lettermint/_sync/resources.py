@@ -44,6 +44,8 @@ from .._generated.types import (
     ListRoutesResponse,
     ListSuppressionsQuery,
     ListSuppressionsResponse,
+    ListTeamApiTokensQuery,
+    ListTeamApiTokensResponse,
     ListTeamInvitesQuery,
     ListTeamInvitesResponse,
     ListTeamMembersQuery,
@@ -80,9 +82,12 @@ from .._generated.types import (
     StoreProjectData,
     StoreRouteData,
     StoreSuppressionData,
+    StoreTeamApiTokenData,
     StoreWebhookData,
     SuppressedRecipientData,
     SuppressionStoreResponse,
+    TeamApiToken,
+    TeamApiTokenCreatedResponse,
     TeamData,
     TeamInviteData,
     TeamMemberData,
@@ -123,6 +128,7 @@ __all__ = [
     "Stats",
     "Suppressions",
     "Team",
+    "TeamApiTokens",
     "TeamInvites",
     "TeamMembers",
     "WebhookDeliveries",
@@ -993,6 +999,64 @@ class TeamInvites(Resource):
         )
 
 
+class TeamApiTokens(Resource):
+    """Team API tokens. Team token."""
+
+    def list(
+        self, query: ListTeamApiTokensQuery | None = None, *, timeout: float | None = None
+    ) -> ListTeamApiTokensResponse:
+        """Lists the team's API tokens, one page at a time.
+
+        The list holds token metadata only; a token's value is only returned when it is created.
+        """
+        return cast(
+            ListTeamApiTokensResponse,
+            self._request(
+                "GET /team/api-tokens", "team.api_tokens.list", query=query, timeout=timeout
+            ),
+        )
+
+    def iterate(
+        self, query: ListTeamApiTokensQuery | None = None, *, timeout: float | None = None
+    ) -> Iterator[TeamApiToken]:
+        """Iterates over every team API token, following ``next_cursor``."""
+        return self._paginate(
+            "GET /team/api-tokens", "team.api_tokens.iterate", query=query, timeout=timeout
+        )
+
+    def create(
+        self, body: StoreTeamApiTokenData, *, timeout: float | None = None
+    ) -> TeamApiTokenCreatedResponse:
+        """Creates a team API token.
+
+        The new token can only have abilities that the requesting token has. It copies the
+        requesting token's IP allowlist, and it can't outlive the requesting token
+        (``expires_at`` defaults to its expiry). The response holds the token value
+        (``data["token"]``) only once: store it, it cannot be read again.
+        """
+        return cast(
+            TeamApiTokenCreatedResponse,
+            self._request(
+                "POST /team/api-tokens", "team.api_tokens.create", body=body, timeout=timeout
+            ),
+        )
+
+    def delete(self, token_id: str, *, timeout: float | None = None) -> MessageResponse:
+        """Deletes a team API token. The token stops working immediately.
+
+        A token can only delete tokens whose abilities it also has.
+        """
+        return cast(
+            MessageResponse,
+            self._request(
+                "DELETE /team/api-tokens/{tokenId}",
+                "team.api_tokens.delete",
+                path={"tokenId": token_id},
+                timeout=timeout,
+            ),
+        )
+
+
 class Team(Resource):
     """The team of the token. Team token."""
 
@@ -1002,6 +1066,8 @@ class Team(Resource):
         self.members = TeamMembers(transport)
         #: Pending invitations to the team.
         self.invites = TeamInvites(transport)
+        #: Team API tokens.
+        self.api_tokens = TeamApiTokens(transport)
 
     def retrieve(
         self, query: GetTeamQuery | None = None, *, timeout: float | None = None
