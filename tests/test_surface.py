@@ -67,6 +67,18 @@ CALLS: list[tuple[str, tuple[Any, ...], str]] = [
     ("projects.update", ("p1", {"name": "Renamed"}), "PUT /projects/{projectId}"),
     ("projects.delete", ("p1",), "DELETE /projects/{projectId}"),
     ("projects.rotate_token", ("p1",), "POST /projects/{projectId}/rotate-token"),
+    ("projects.api_tokens.list", ("p1",), "GET /projects/{projectId}/api-tokens"),
+    ("projects.api_tokens.iterate", ("p1",), "GET /projects/{projectId}/api-tokens"),
+    (
+        "projects.api_tokens.create",
+        ("p1", {"name": "Checkout service"}),
+        "POST /projects/{projectId}/api-tokens",
+    ),
+    (
+        "projects.api_tokens.delete",
+        ("p1", "t1"),
+        "DELETE /projects/{projectId}/api-tokens/{tokenId}",
+    ),
     ("projects.report_forwarding.retrieve", ("p1",), "GET /projects/{projectId}/report-forwarding"),
     (
         "projects.report_forwarding.update",
@@ -178,6 +190,14 @@ CALLS: list[tuple[str, tuple[Any, ...], str]] = [
     ),
 ]
 
+# Operations without a method yet: the next PR in this stack (team API tokens) adds them and
+# removes this list.
+PENDING = {
+    "GET /team/api-tokens",
+    "POST /team/api-tokens",
+    "DELETE /team/api-tokens/{tokenId}",
+}
+
 LAYOUT = {
     "domains": [
         "create",
@@ -205,6 +225,7 @@ LAYOUT = {
     ],
     "projects": ["create", "delete", "iterate", "list", "retrieve", "rotate_token", "update"],
     "projects.report_forwarding": ["delete", "resend_code", "retrieve", "update", "verify"],
+    "projects.api_tokens": ["create", "delete", "iterate", "list"],
     "routes": [
         "create",
         "delete",
@@ -289,7 +310,8 @@ def test_every_operation_is_reachable_from_the_sync_client(
             assert list(result) == [{} if dotted == "analytics_pages" else {"id": "x"}]
         assert [operation_of(r) for r in api.requests[before:]] == [key], dotted
         reached.add(key)
-    assert reached == set(OPERATIONS)
+    assert set(OPERATIONS) >= PENDING
+    assert reached == set(OPERATIONS) - PENDING
 
 
 @pytest.mark.anyio
@@ -309,7 +331,8 @@ async def test_every_operation_is_reachable_from_the_async_client(
             await result
         assert [operation_of(r) for r in api.requests[before:]] == [key], dotted
         reached.add(key)
-    assert reached == set(OPERATIONS)
+    assert set(OPERATIONS) >= PENDING
+    assert reached == set(OPERATIONS) - PENDING
 
 
 def _public_methods(obj: Any) -> list[str]:

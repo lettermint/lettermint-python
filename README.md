@@ -287,6 +287,7 @@ print(resent["message_id"])  # the new message; it links back through resent_fro
 | `messages` | `list`, `iterate`, `retrieve`, `events`, `iterate_events`, `source`, `html`, `text`, `reschedule`, `cancel`, `process`, `resend` |
 | `projects` | `list`, `iterate`, `create`, `retrieve`, `update`, `delete`, `rotate_token` |
 | `projects.report_forwarding` | `retrieve`, `update`, `delete`, `verify`, `resend_code` |
+| `projects.api_tokens` | `list(project_id)`, `iterate(project_id)`, `create(project_id, …)`, `delete(project_id, token_id)` |
 | `routes` | `list(project_id)`, `iterate(project_id)`, `create(project_id, …)`, `retrieve`, `update`, `delete`, `verify_inbound_domain` |
 | `stats` | `retrieve` |
 | `suppressions` | `list`, `iterate`, `create`, `delete` |
@@ -306,6 +307,14 @@ invite = lettermint.team.invites.create({
     "project_access": {"scope": "selected", "project_ids": ["project-id"]},
 })
 lettermint.team.invites.revoke(invite["id"])
+```
+
+`projects.api_tokens.create()` creates another API token for a project. The value (`data["token"]`) is only returned once, so store it right away. Use it to send through the API, or as the SMTP password when SMTP is enabled for the project; `smtp` then holds the SMTP settings, otherwise it is `None`. `"short_token": True` creates a shorter token for devices that limit password length. `list()` and `iterate()` return token metadata only, and `delete()` stops a token from working immediately.
+
+```python
+created = lettermint.projects.api_tokens.create("project-id", {"name": "Checkout service"})
+print(created["data"]["token"])  # shown once
+lettermint.projects.api_tokens.delete("project-id", created["data"]["id"])
 ```
 
 `team.members.remove()` removes a member from the team; the Owner cannot be removed. `team.members.list()` and `team.members.iterate()` take a `filter[project_id]` that returns only the members who can access that project: members with access to all projects and members selected for it.

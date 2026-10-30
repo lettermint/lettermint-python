@@ -36,6 +36,8 @@ from .._generated.types import (
     ListMessageEventsResponse,
     ListMessagesQuery,
     ListMessagesResponse,
+    ListProjectApiTokensQuery,
+    ListProjectApiTokensResponse,
     ListProjectsQuery,
     ListProjectsResponse,
     ListRoutesQuery,
@@ -56,6 +58,8 @@ from .._generated.types import (
     MessageResponse,
     PendingSendMailResponse,
     ProcessInboundMessageResponse,
+    ProjectApiToken,
+    ProjectApiTokenCreatedResponse,
     ProjectCreatedData,
     ProjectData,
     ProjectListData,
@@ -72,6 +76,7 @@ from .._generated.types import (
     ScheduledMessage,
     StatsData,
     StoreDomainData,
+    StoreProjectApiTokenData,
     StoreProjectData,
     StoreRouteData,
     StoreSuppressionData,
@@ -111,6 +116,7 @@ from ..exceptions import UnexpectedResponseError
 __all__ = [
     "Domains",
     "Messages",
+    "ProjectApiTokens",
     "Projects",
     "ReportForwarding",
     "Routes",
@@ -523,6 +529,83 @@ class ReportForwarding(Resource):
         )
 
 
+class ProjectApiTokens(Resource):
+    """Project API tokens (sending tokens) of a project. Team token."""
+
+    def list(
+        self,
+        project_id: str,
+        query: ListProjectApiTokensQuery | None = None,
+        *,
+        timeout: float | None = None,
+    ) -> ListProjectApiTokensResponse:
+        """Lists the API tokens of a project, one page at a time.
+
+        The list holds token metadata only; a token's value is only returned when it is created.
+        """
+        return cast(
+            ListProjectApiTokensResponse,
+            self._request(
+                "GET /projects/{projectId}/api-tokens",
+                "projects.api_tokens.list",
+                path={"projectId": project_id},
+                query=query,
+                timeout=timeout,
+            ),
+        )
+
+    def iterate(
+        self,
+        project_id: str,
+        query: ListProjectApiTokensQuery | None = None,
+        *,
+        timeout: float | None = None,
+    ) -> Iterator[ProjectApiToken]:
+        """Iterates over every API token of a project, following ``next_cursor``."""
+        return self._paginate(
+            "GET /projects/{projectId}/api-tokens",
+            "projects.api_tokens.iterate",
+            path={"projectId": project_id},
+            query=query,
+            timeout=timeout,
+        )
+
+    def create(
+        self, project_id: str, body: StoreProjectApiTokenData, *, timeout: float | None = None
+    ) -> ProjectApiTokenCreatedResponse:
+        """Creates an API token for a project.
+
+        The response holds the token value (``data["token"]``) only once: store it, it cannot be
+        read again. Use it to send through the API, or as the SMTP password when SMTP is enabled
+        for the project (``smtp`` then holds the SMTP settings, otherwise ``None``).
+        ``"short_token": True`` creates a shorter token for devices that limit password length.
+        """
+        return cast(
+            ProjectApiTokenCreatedResponse,
+            self._request(
+                "POST /projects/{projectId}/api-tokens",
+                "projects.api_tokens.create",
+                path={"projectId": project_id},
+                body=body,
+                timeout=timeout,
+            ),
+        )
+
+    def delete(
+        self, project_id: str, token_id: str, *, timeout: float | None = None
+    ) -> MessageResponse:
+        """Deletes an API token of a project. The token stops working immediately."""
+        return cast(
+            MessageResponse,
+            self._request(
+                "DELETE /projects/{projectId}/api-tokens/{tokenId}",
+                "projects.api_tokens.delete",
+                path={"projectId": project_id, "tokenId": token_id},
+                timeout=timeout,
+            ),
+        )
+
+
 class Projects(Resource):
     """Projects. Team token."""
 
@@ -530,6 +613,8 @@ class Projects(Resource):
         super().__init__(transport)
         #: Report forwarding of a project.
         self.report_forwarding = ReportForwarding(transport)
+        #: API tokens of a project.
+        self.api_tokens = ProjectApiTokens(transport)
 
     def list(
         self, query: ListProjectsQuery | None = None, *, timeout: float | None = None
@@ -597,7 +682,10 @@ class Projects(Resource):
     def rotate_token(
         self, project_id: str, *, timeout: float | None = None
     ) -> RotateProjectTokenResponse:
-        """Rotates the project's legacy sending token. Deprecated by the API."""
+        """Rotates the project's legacy sending token. Deprecated by the API.
+
+        Use ``api_tokens`` to list, create or delete specific tokens.
+        """
         return cast(
             RotateProjectTokenResponse,
             self._request(
