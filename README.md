@@ -283,7 +283,7 @@ print(resent["message_id"])  # the new message; it links back through resent_fro
 
 | Attribute | Methods |
 | --- | --- |
-| `domains` | `list`, `iterate`, `create`, `retrieve`, `delete`, `verify_dns_records`, `verify_dns_record`, `update_projects` |
+| `domains` | `list`, `iterate`, `create`, `retrieve`, `delete`, `verify_dns_records`, `verify_dns_record`, `update_projects`, `start_dkim_upgrade`, `cancel_dkim_upgrade`, `activate_dkim_upgrade`, `rotate_dkim_key` |
 | `messages` | `list`, `iterate`, `retrieve`, `events`, `iterate_events`, `source`, `html`, `text`, `reschedule`, `cancel`, `process`, `resend` |
 | `projects` | `list`, `iterate`, `create`, `retrieve`, `update`, `delete`, `rotate_token` |
 | `projects.report_forwarding` | `retrieve`, `update`, `delete`, `verify`, `resend_code` |
@@ -298,6 +298,18 @@ print(resent["message_id"])  # the new message; it links back through resent_fro
 | `webhooks` | `list`, `iterate`, `create`, `retrieve`, `update`, `delete`, `test`, `regenerate_secret` |
 | `webhooks.deliveries` | `list(webhook_id)`, `iterate(webhook_id)`, `retrieve(webhook_id, delivery_id)`, `retry(webhook_id, delivery_id)` |
 | (root) | `ping`, `analytics`, `analytics_pages`, `blocked_file_types` |
+
+`domains.start_dkim_upgrade()` moves a domain with a DKIM TXT record (`dkim_mode` `legacy_txt`) to managed DKIM. The response lists two new DKIM CNAME records to add to your DNS; the TXT record keeps signing in the meantime. When `dkim_transition["state"]` is `ready_to_activate`, `domains.activate_dkim_upgrade()` starts a grace period in which both keys are published, and the upgrade completes at `dkim_transition["completes_after"]`. `domains.cancel_dkim_upgrade()` cancels an upgrade before its grace period. `domains.rotate_dkim_key()` replaces the key of a domain with managed DKIM early, without DNS changes; Lettermint also rotates keys on a schedule. A domain in the wrong state raises a `ValidationError` with the reason in `code`.
+
+```python
+domain = lettermint.domains.start_dkim_upgrade("domain-id")["data"]
+for record in domain.get("dns_records", []):
+    print(record["type"], record["fqdn"], record["content"])
+
+transition = lettermint.domains.retrieve("domain-id").get("dkim_transition")
+if transition and transition["state"] == "ready_to_activate":
+    lettermint.domains.activate_dkim_upgrade("domain-id")
+```
 
 `team.invites.create()` invites a person to the team with a role and project access, and emails the invitation. The team needs a free seat, and the Owner role cannot be assigned. `team.invites.update()` replaces the email address, role and project access of a pending invite; it sends a new email only when the address changes. `team.invites.revoke()` revokes it.
 
