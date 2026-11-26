@@ -66,6 +66,9 @@ from .._generated.types import (
     ProjectData,
     ProjectListData,
     ProjectMutationResponse,
+    ProjectTrackingDomain,
+    ProjectTrackingDomainMutationResponse,
+    ProjectTrackingDomainVerificationResponse,
     ReportForwardingRequest,
     RescheduleMessageRequest,
     ResendMessageRequest,
@@ -98,6 +101,7 @@ from .._generated.types import (
     TestWebhookResponse,
     UpdateDomainProjectsData,
     UpdateProjectData,
+    UpdateProjectTrackingDomainData,
     UpdateReportForwardingResponse,
     UpdateRouteData,
     UpdateTeamApiTokenData,
@@ -132,6 +136,7 @@ __all__ = [
     "TeamApiTokens",
     "TeamInvites",
     "TeamMembers",
+    "TrackingDomain",
     "WebhookDeliveries",
     "Webhooks",
 ]
@@ -616,6 +621,84 @@ class ReportForwarding(Resource):
         )
 
 
+class TrackingDomain(Resource):
+    """The custom tracking domain of a project, for open and click tracking links. Team token."""
+
+    def retrieve(
+        self, project_id: str, *, timeout: float | None = None
+    ) -> ProjectTrackingDomain:
+        """Returns the custom tracking domain and whether its CNAME record is verified.
+
+        ``domain`` is ``None`` when the project uses the Lettermint tracking domain.
+        """
+        return cast(
+            ProjectTrackingDomain,
+            self._request(
+                "GET /projects/{projectId}/tracking-domain",
+                "projects.tracking_domain.retrieve",
+                path={"projectId": project_id},
+                timeout=timeout,
+            ),
+        )
+
+    def update(
+        self,
+        project_id: str,
+        body: UpdateProjectTrackingDomainData,
+        *,
+        timeout: float | None = None,
+    ) -> ProjectTrackingDomainMutationResponse:
+        """Sets or replaces the custom tracking domain.
+
+        Add a CNAME record for the domain that points to ``cname_target``. Lettermint checks it
+        in the background, or call ``verify`` to check it now. Tracking links keep using the
+        Lettermint tracking domain until the domain is verified. Needs a plan with custom
+        tracking domains.
+        """
+        return cast(
+            ProjectTrackingDomainMutationResponse,
+            self._request(
+                "PUT /projects/{projectId}/tracking-domain",
+                "projects.tracking_domain.update",
+                path={"projectId": project_id},
+                body=body,
+                timeout=timeout,
+            ),
+        )
+
+    def delete(self, project_id: str, *, timeout: float | None = None) -> None:
+        """Removes the custom tracking domain (HTTP 204).
+
+        Tracking links use the Lettermint tracking domain again.
+        """
+        self._request(
+            "DELETE /projects/{projectId}/tracking-domain",
+            "projects.tracking_domain.delete",
+            path={"projectId": project_id},
+            timeout=timeout,
+        )
+
+    def verify(
+        self, project_id: str, *, timeout: float | None = None
+    ) -> ProjectTrackingDomainVerificationResponse:
+        """Checks the CNAME record of the custom tracking domain now.
+
+        When the record is missing, points to another target or the DNS lookup failed, the API
+        answers HTTP 422: a :class:`~lettermint.ValidationError` whose ``body`` holds the same
+        verification response (``body["data"]["temporary_error"]`` is ``True`` when the lookup
+        failed; try again later).
+        """
+        return cast(
+            ProjectTrackingDomainVerificationResponse,
+            self._request(
+                "POST /projects/{projectId}/tracking-domain/verify",
+                "projects.tracking_domain.verify",
+                path={"projectId": project_id},
+                timeout=timeout,
+            ),
+        )
+
+
 class ProjectApiTokens(Resource):
     """Project API tokens (sending tokens) of a project. Team token."""
 
@@ -702,6 +785,8 @@ class Projects(Resource):
         self.report_forwarding = ReportForwarding(transport)
         #: API tokens of a project.
         self.api_tokens = ProjectApiTokens(transport)
+        #: The custom tracking domain of a project.
+        self.tracking_domain = TrackingDomain(transport)
 
     def list(
         self, query: ListProjectsQuery | None = None, *, timeout: float | None = None

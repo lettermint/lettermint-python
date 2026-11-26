@@ -129,6 +129,7 @@ def test_tokens_never_appear_in_debug_output(cls: Any) -> None:
         client.domains,
         client.webhooks.deliveries,
         client.projects.report_forwarding,
+        client.projects.tracking_domain,
         client._transport,
         client._transport.config,
         client.emails.compose().from_("a@acme.test").to("b@example.test"),

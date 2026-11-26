@@ -34,6 +34,7 @@ from ._async import (
     AsyncTeamApiTokens,
     AsyncTeamInvites,
     AsyncTeamMembers,
+    AsyncTrackingDomain,
     AsyncWebhookDeliveries,
     AsyncWebhooks,
 )
@@ -55,6 +56,7 @@ from ._sync import (
     TeamApiTokens,
     TeamInvites,
     TeamMembers,
+    TrackingDomain,
     WebhookDeliveries,
     Webhooks,
 )
@@ -99,6 +101,7 @@ __all__ = [
     "AsyncTeamApiTokens",
     "AsyncTeamInvites",
     "AsyncTeamMembers",
+    "AsyncTrackingDomain",
     "AsyncWebhookDeliveries",
     "AsyncWebhooks",
     "AuthenticationError",
@@ -131,6 +134,7 @@ __all__ = [
     "TeamApiTokens",
     "TeamInvites",
     "TeamMembers",
+    "TrackingDomain",
     "UnexpectedResponseError",
     "ValidationError",
     "Webhook",
