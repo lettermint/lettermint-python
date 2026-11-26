@@ -289,6 +289,86 @@ class Domains(Resource):
             ),
         )
 
+    def start_dkim_upgrade(
+        self, domain_id: str, *, timeout: float | None = None
+    ) -> DomainMutationResponse:
+        """Starts moving a ``legacy_txt`` domain to managed DKIM.
+
+        The response lists two new DKIM CNAME records (``verification_scope`` ``migration``) to
+        add to your DNS. The current DKIM TXT record keeps signing until the upgrade completes.
+        When ``dkim_transition["state"]`` is ``ready_to_activate``, call
+        ``activate_dkim_upgrade``. Calling this again returns the upgrade in progress; a domain
+        that already uses managed DKIM is returned unchanged.
+        """
+        return cast(
+            DomainMutationResponse,
+            self._request(
+                "POST /domains/{domainId}/dkim/upgrade",
+                "domains.start_dkim_upgrade",
+                path={"domainId": domain_id},
+                timeout=timeout,
+            ),
+        )
+
+    def cancel_dkim_upgrade(
+        self, domain_id: str, *, timeout: float | None = None
+    ) -> DomainMutationResponse:
+        """Cancels the managed DKIM upgrade and removes its DKIM CNAME records.
+
+        The domain keeps its DKIM TXT record. An upgrade cannot be cancelled after its grace
+        period started (HTTP 422). Without an upgrade in progress nothing changes, and a key
+        rotation is never cancelled.
+        """
+        return cast(
+            DomainMutationResponse,
+            self._request(
+                "DELETE /domains/{domainId}/dkim/upgrade",
+                "domains.cancel_dkim_upgrade",
+                path={"domainId": domain_id},
+                timeout=timeout,
+            ),
+        )
+
+    def activate_dkim_upgrade(
+        self, domain_id: str, *, timeout: float | None = None
+    ) -> DomainMutationResponse:
+        """Activates the managed DKIM upgrade once both DKIM CNAME records are verified.
+
+        Lettermint checks both records again, then starts a grace period in which both keys are
+        published. The upgrade completes at ``dkim_transition["completes_after"]``, when
+        ``dkim_mode`` changes to ``managed_cname``; then you can remove the old DKIM TXT record.
+        HTTP 422 when there is no upgrade or it is not ready.
+        """
+        return cast(
+            DomainMutationResponse,
+            self._request(
+                "POST /domains/{domainId}/dkim/upgrade/activate",
+                "domains.activate_dkim_upgrade",
+                path={"domainId": domain_id},
+                timeout=timeout,
+            ),
+        )
+
+    def rotate_dkim_key(
+        self, domain_id: str, *, timeout: float | None = None
+    ) -> DomainMutationResponse:
+        """Starts a DKIM key rotation for a domain with managed DKIM.
+
+        The DKIM CNAME records stay the same, so no DNS change is needed. Lettermint publishes
+        the new key and keeps both keys published during a grace period. Lettermint also rotates
+        keys on a schedule, so this is only needed to replace a key early. Calling this again
+        during a rotation returns the rotation in progress.
+        """
+        return cast(
+            DomainMutationResponse,
+            self._request(
+                "POST /domains/{domainId}/dkim/rotate",
+                "domains.rotate_dkim_key",
+                path={"domainId": domain_id},
+                timeout=timeout,
+            ),
+        )
+
 
 class Messages(Resource):
     """Sent and received messages. Team token.

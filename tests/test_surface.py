@@ -44,6 +44,14 @@ CALLS: list[tuple[str, tuple[Any, ...], str]] = [
         "POST /domains/{domainId}/dns-records/{recordId}/verify",
     ),
     ("domains.update_projects", ("d1", {"project_ids": []}), "PUT /domains/{domainId}/projects"),
+    ("domains.start_dkim_upgrade", ("d1",), "POST /domains/{domainId}/dkim/upgrade"),
+    ("domains.cancel_dkim_upgrade", ("d1",), "DELETE /domains/{domainId}/dkim/upgrade"),
+    (
+        "domains.activate_dkim_upgrade",
+        ("d1",),
+        "POST /domains/{domainId}/dkim/upgrade/activate",
+    ),
+    ("domains.rotate_dkim_key", ("d1",), "POST /domains/{domainId}/dkim/rotate"),
     ("messages.list", (), "GET /messages"),
     ("messages.iterate", (), "GET /messages"),
     ("messages.retrieve", ("m1",), "GET /messages/{messageId}"),
@@ -203,13 +211,9 @@ CALLS: list[tuple[str, tuple[Any, ...], str]] = [
     ),
 ]
 
-# Operations without a method yet: the next PRs in this stack add them. The DKIM upgrade and
-# rotation PR removes the domain operations, the tracking domain PR the rest and this list.
+# Operations without a method yet: the next PR in this stack (project tracking domains) adds
+# them and removes this list.
 PENDING = {
-    "POST /domains/{domainId}/dkim/upgrade",
-    "DELETE /domains/{domainId}/dkim/upgrade",
-    "POST /domains/{domainId}/dkim/upgrade/activate",
-    "POST /domains/{domainId}/dkim/rotate",
     "GET /projects/{projectId}/tracking-domain",
     "PUT /projects/{projectId}/tracking-domain",
     "DELETE /projects/{projectId}/tracking-domain",
@@ -218,11 +222,15 @@ PENDING = {
 
 LAYOUT = {
     "domains": [
+        "activate_dkim_upgrade",
+        "cancel_dkim_upgrade",
         "create",
         "delete",
         "iterate",
         "list",
         "retrieve",
+        "rotate_dkim_key",
+        "start_dkim_upgrade",
         "update_projects",
         "verify_dns_record",
         "verify_dns_records",
