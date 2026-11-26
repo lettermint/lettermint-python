@@ -25,6 +25,7 @@ from lettermint.types import (
     StoreTeamApiTokenData,
     TeamApiToken,
     TeamApiTokenCreatedResponse,
+    UpdateTeamApiTokenData,
 )
 
 from .conftest import BASE_URL, SENDING_TOKEN, TEAM_TOKEN, MockAPI
@@ -289,6 +290,68 @@ def test_delete_team_token(api: MockAPI, client: Lettermint) -> None:
     assert api.last.content == b""
 
 
+def test_update_team_token(api: MockAPI, client: Lettermint) -> None:
+    updated_token: TeamApiToken = {**TEAM_API_TOKEN, "name": "CI", "abilities": ["read:domains"]}
+    api.json(200, updated_token)
+    body: UpdateTeamApiTokenData = {"name": "CI", "abilities": ["read:domains"]}
+    updated: TeamApiToken = client.team.api_tokens.update("t1", body)
+    assert updated == updated_token
+    assert "token" not in updated
+    assert_team_request(api, "PUT", "/team/api-tokens/t1")
+    assert api.last.headers["content-type"] == "application/json"
+    assert api.body() == {"name": "CI", "abilities": ["read:domains"]}
+
+
+@pytest.mark.parametrize(
+    "body",
+    [{"name": "Renamed"}, {"abilities": ["read:messages", "write:messages"]}, {}],
+)
+def test_update_team_token_sends_only_the_given_fields(
+    api: MockAPI, client: Lettermint, body: UpdateTeamApiTokenData
+) -> None:
+    api.json(200, TEAM_API_TOKEN)
+    client.team.api_tokens.update("t1", body)
+    assert_team_request(api, "PUT", "/team/api-tokens/t1")
+    assert api.body() == body
+
+
+def test_updating_to_an_ability_the_token_lacks_is_forbidden(
+    api: MockAPI, client: Lettermint
+) -> None:
+    body = {
+        "error": {
+            "code": "ABILITY_NOT_HELD",
+            "message": "The token does not have the write:team ability.",
+        }
+    }
+    api.json(403, body)
+    with pytest.raises(PermissionDeniedError) as caught:
+        client.team.api_tokens.update("t1", {"abilities": ["write:team"]})
+    assert caught.value.status == 403
+    assert caught.value.code == "ABILITY_NOT_HELD"
+
+
+def test_an_invalid_team_token_update_is_a_validation_error(
+    api: MockAPI, client: Lettermint
+) -> None:
+    body = {
+        "message": "The name field must be a string.",
+        "errors": {"name": ["The name field must be a string."]},
+    }
+    api.json(422, body)
+    with pytest.raises(ValidationError) as caught:
+        client.team.api_tokens.update("t1", {"name": ""})
+    assert caught.value.status == 422
+    assert caught.value.errors == body["errors"]
+
+
+def test_updating_an_unknown_team_token_is_not_found(api: MockAPI, client: Lettermint) -> None:
+    api.json(404, {"message": "Not found."})
+    with pytest.raises(NotFoundError) as caught:
+        client.team.api_tokens.update("missing", {"name": "CI"})
+    assert caught.value.status == 404
+
+
 def test_team_tokens_need_the_team_token(api: MockAPI) -> None:
     sending_only = Lettermint(SENDING_TOKEN, base_url=BASE_URL, http_client=api.sync_client())
     tokens = sending_only.team.api_tokens
@@ -300,6 +363,8 @@ def test_team_tokens_need_the_team_token(api: MockAPI) -> None:
         tokens.create(NEW_TEAM_API_TOKEN)
     with pytest.raises(LettermintConfigError, match=r"^team\.api_tokens\.delete needs team_token"):
         tokens.delete("t1")
+    with pytest.raises(LettermintConfigError, match=r"^team\.api_tokens\.update needs team_token"):
+        tokens.update("t1", {"name": "CI"})
     assert api.requests == []
 
 
@@ -308,6 +373,10 @@ def test_team_token_ids_are_checked_and_encoded(api: MockAPI, client: Lettermint
     for invalid in ("", ".."):
         with pytest.raises(LettermintConfigError, match=r"^team\.api_tokens\.delete: tokenId"):
             client.team.api_tokens.delete(invalid)
+    assert api.requests == []
+    for invalid in ("", ".."):
+        with pytest.raises(LettermintConfigError, match=r"^team\.api_tokens\.update: tokenId"):
+            client.team.api_tokens.update(invalid, {"name": "CI"})
     assert api.requests == []
     client.team.api_tokens.delete("t/1")
     assert api.last.url.raw_path == b"/v1/team/api-tokens/t%2F1"
@@ -347,3 +416,7 @@ async def test_async_team_tokens(api: MockAPI, aclient: AsyncLettermint) -> None
     api.json(200, {"message": "API token deleted."})
     assert await aclient.team.api_tokens.delete("t1") == {"message": "API token deleted."}
     assert_team_request(api, "DELETE", "/team/api-tokens/t1")
+    api.json(200, TEAM_API_TOKEN)
+    assert await aclient.team.api_tokens.update("t1", {"name": "Deploys"}) == TEAM_API_TOKEN
+    assert_team_request(api, "PUT", "/team/api-tokens/t1")
+    assert api.body() == {"name": "Deploys"}

@@ -172,6 +172,11 @@ CALLS: list[tuple[str, tuple[Any, ...], str]] = [
         "POST /team/api-tokens",
     ),
     ("team.api_tokens.delete", ("t1",), "DELETE /team/api-tokens/{tokenId}"),
+    (
+        "team.api_tokens.update",
+        ("t1", {"name": "Deploys"}),
+        "PUT /team/api-tokens/{tokenId}",
+    ),
     ("webhooks.list", (), "GET /webhooks"),
     ("webhooks.iterate", (), "GET /webhooks"),
     (
@@ -197,6 +202,19 @@ CALLS: list[tuple[str, tuple[Any, ...], str]] = [
         "POST /webhooks/{webhookId}/deliveries/{deliveryId}/retry",
     ),
 ]
+
+# Operations without a method yet: the next PRs in this stack add them. The DKIM upgrade and
+# rotation PR removes the domain operations, the tracking domain PR the rest and this list.
+PENDING = {
+    "POST /domains/{domainId}/dkim/upgrade",
+    "DELETE /domains/{domainId}/dkim/upgrade",
+    "POST /domains/{domainId}/dkim/upgrade/activate",
+    "POST /domains/{domainId}/dkim/rotate",
+    "GET /projects/{projectId}/tracking-domain",
+    "PUT /projects/{projectId}/tracking-domain",
+    "DELETE /projects/{projectId}/tracking-domain",
+    "POST /projects/{projectId}/tracking-domain/verify",
+}
 
 LAYOUT = {
     "domains": [
@@ -248,7 +266,7 @@ LAYOUT = {
         "update_role",
         "usage",
     ],
-    "team.api_tokens": ["create", "delete", "iterate", "list"],
+    "team.api_tokens": ["create", "delete", "iterate", "list", "update"],
     "team.invites": ["create", "iterate", "list", "retrieve", "revoke", "update"],
     "team.members": ["iterate", "list", "remove", "retrieve", "update_assignment"],
     "webhooks": [
@@ -311,7 +329,8 @@ def test_every_operation_is_reachable_from_the_sync_client(
             assert list(result) == [{} if dotted == "analytics_pages" else {"id": "x"}]
         assert [operation_of(r) for r in api.requests[before:]] == [key], dotted
         reached.add(key)
-    assert reached == set(OPERATIONS)
+    assert set(OPERATIONS) >= PENDING
+    assert reached == set(OPERATIONS) - PENDING
 
 
 @pytest.mark.anyio
@@ -331,7 +350,8 @@ async def test_every_operation_is_reachable_from_the_async_client(
             await result
         assert [operation_of(r) for r in api.requests[before:]] == [key], dotted
         reached.add(key)
-    assert reached == set(OPERATIONS)
+    assert set(OPERATIONS) >= PENDING
+    assert reached == set(OPERATIONS) - PENDING
 
 
 def _public_methods(obj: Any) -> list[str]:
