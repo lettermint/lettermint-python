@@ -16,6 +16,7 @@ from .resources import (
     AsyncTeamApiTokens,
     AsyncTeamInvites,
     AsyncTeamMembers,
+    AsyncTrackingDomain,
     AsyncWebhookDeliveries,
     AsyncWebhooks,
 )
@@ -37,6 +38,7 @@ __all__ = [
     "AsyncTeamApiTokens",
     "AsyncTeamInvites",
     "AsyncTeamMembers",
+    "AsyncTrackingDomain",
     "AsyncWebhookDeliveries",
     "AsyncWebhooks",
 ]

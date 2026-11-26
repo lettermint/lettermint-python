@@ -17,6 +17,7 @@ from .resources import (
     TeamApiTokens,
     TeamInvites,
     TeamMembers,
+    TrackingDomain,
     WebhookDeliveries,
     Webhooks,
 )
@@ -38,6 +39,7 @@ __all__ = [
     "TeamApiTokens",
     "TeamInvites",
     "TeamMembers",
+    "TrackingDomain",
     "WebhookDeliveries",
     "Webhooks",
 ]

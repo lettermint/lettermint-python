@@ -108,6 +108,26 @@ CALLS: list[tuple[str, tuple[Any, ...], str]] = [
         ("p1",),
         "POST /projects/{projectId}/report-forwarding/resend-code",
     ),
+    (
+        "projects.tracking_domain.retrieve",
+        ("p1",),
+        "GET /projects/{projectId}/tracking-domain",
+    ),
+    (
+        "projects.tracking_domain.update",
+        ("p1", {"domain": "track.acme.test"}),
+        "PUT /projects/{projectId}/tracking-domain",
+    ),
+    (
+        "projects.tracking_domain.delete",
+        ("p1",),
+        "DELETE /projects/{projectId}/tracking-domain",
+    ),
+    (
+        "projects.tracking_domain.verify",
+        ("p1",),
+        "POST /projects/{projectId}/tracking-domain/verify",
+    ),
     ("routes.list", ("p1",), "GET /projects/{projectId}/routes"),
     ("routes.iterate", ("p1",), "GET /projects/{projectId}/routes"),
     (
@@ -211,15 +231,6 @@ CALLS: list[tuple[str, tuple[Any, ...], str]] = [
     ),
 ]
 
-# Operations without a method yet: the next PR in this stack (project tracking domains) adds
-# them and removes this list.
-PENDING = {
-    "GET /projects/{projectId}/tracking-domain",
-    "PUT /projects/{projectId}/tracking-domain",
-    "DELETE /projects/{projectId}/tracking-domain",
-    "POST /projects/{projectId}/tracking-domain/verify",
-}
-
 LAYOUT = {
     "domains": [
         "activate_dkim_upgrade",
@@ -252,6 +263,7 @@ LAYOUT = {
     "projects": ["create", "delete", "iterate", "list", "retrieve", "rotate_token", "update"],
     "projects.report_forwarding": ["delete", "resend_code", "retrieve", "update", "verify"],
     "projects.api_tokens": ["create", "delete", "iterate", "list"],
+    "projects.tracking_domain": ["delete", "retrieve", "update", "verify"],
     "routes": [
         "create",
         "delete",
@@ -337,8 +349,7 @@ def test_every_operation_is_reachable_from_the_sync_client(
             assert list(result) == [{} if dotted == "analytics_pages" else {"id": "x"}]
         assert [operation_of(r) for r in api.requests[before:]] == [key], dotted
         reached.add(key)
-    assert set(OPERATIONS) >= PENDING
-    assert reached == set(OPERATIONS) - PENDING
+    assert reached == set(OPERATIONS)
 
 
 @pytest.mark.anyio
@@ -358,8 +369,7 @@ async def test_every_operation_is_reachable_from_the_async_client(
             await result
         assert [operation_of(r) for r in api.requests[before:]] == [key], dotted
         reached.add(key)
-    assert set(OPERATIONS) >= PENDING
-    assert reached == set(OPERATIONS) - PENDING
+    assert reached == set(OPERATIONS)
 
 
 def _public_methods(obj: Any) -> list[str]:

@@ -288,6 +288,7 @@ print(resent["message_id"])  # the new message; it links back through resent_fro
 | `projects` | `list`, `iterate`, `create`, `retrieve`, `update`, `delete`, `rotate_token` |
 | `projects.report_forwarding` | `retrieve`, `update`, `delete`, `verify`, `resend_code` |
 | `projects.api_tokens` | `list(project_id)`, `iterate(project_id)`, `create(project_id, …)`, `delete(project_id, token_id)` |
+| `projects.tracking_domain` | `retrieve`, `update`, `delete`, `verify` |
 | `routes` | `list(project_id)`, `iterate(project_id)`, `create(project_id, …)`, `retrieve`, `update`, `delete`, `verify_inbound_domain` |
 | `stats` | `retrieve` |
 | `suppressions` | `list`, `iterate`, `create`, `delete` |
@@ -328,6 +329,18 @@ lettermint.team.invites.revoke(invite["id"])
 created = lettermint.projects.api_tokens.create("project-id", {"name": "Checkout service"})
 print(created["data"]["token"])  # shown once
 lettermint.projects.api_tokens.delete("project-id", created["data"]["id"])
+```
+
+`projects.tracking_domain.update()` sets a custom domain for the open and click tracking links of a project; it needs a plan with custom tracking domains. Add a CNAME record for the domain that points to `cname_target`. Lettermint checks it in the background, or `verify()` checks it now; until the domain is verified, tracking links keep using the Lettermint tracking domain. When the check fails, `verify()` raises a `ValidationError` whose `body` holds the same verification result, with `temporary_error` set when the DNS lookup failed. `delete()` switches back to the Lettermint tracking domain.
+
+```python
+tracking = lettermint.projects.tracking_domain.update("project-id", {"domain": "track.acme.com"})
+print(tracking["data"]["cname_target"])  # point a CNAME record for track.acme.com here
+
+try:
+    lettermint.projects.tracking_domain.verify("project-id")
+except ValidationError as error:
+    print(error.message, error.body["data"]["found_cname"])
 ```
 
 `team.api_tokens.create()` creates a team API token. The new token can only have abilities that the requesting token has. It copies the requesting token's IP allowlist, and it can't outlive the requesting token: `expires_at` defaults to, and can't be later than, its expiry. The value (`data["token"]`) is only returned once, so store it right away. `team.api_tokens.update()` renames a token or replaces its abilities: `abilities` is the token's complete new list. A token can only change tokens whose abilities it also has, and only to abilities it has; to add abilities, the changed token must be limited to the requesting token's IP allowlist and must not expire after it. `team.api_tokens.delete()` stops a token from working immediately; a token can only delete tokens whose abilities it also has.
