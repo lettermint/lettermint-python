@@ -294,7 +294,7 @@ print(resent["message_id"])  # the new message; it links back through resent_fro
 | `team` | `retrieve`, `update`, `usage`, `roles`, `retrieve_role`, `create_role`, `update_role`, `delete_role`, `duplicate_role` |
 | `team.members` | `list`, `iterate`, `retrieve`, `update_assignment`, `remove` |
 | `team.invites` | `list`, `iterate`, `retrieve`, `create`, `update`, `revoke` |
-| `team.api_tokens` | `list`, `iterate`, `create`, `delete` |
+| `team.api_tokens` | `list`, `iterate`, `create`, `update`, `delete` |
 | `webhooks` | `list`, `iterate`, `create`, `retrieve`, `update`, `delete`, `test`, `regenerate_secret` |
 | `webhooks.deliveries` | `list(webhook_id)`, `iterate(webhook_id)`, `retrieve(webhook_id, delivery_id)`, `retry(webhook_id, delivery_id)` |
 | (root) | `ping`, `analytics`, `analytics_pages`, `blocked_file_types` |
@@ -318,7 +318,7 @@ print(created["data"]["token"])  # shown once
 lettermint.projects.api_tokens.delete("project-id", created["data"]["id"])
 ```
 
-`team.api_tokens.create()` creates a team API token. The new token can only have abilities that the requesting token has. It copies the requesting token's IP allowlist, and it can't outlive the requesting token: `expires_at` defaults to, and can't be later than, its expiry. The value (`data["token"]`) is only returned once, so store it right away. `team.api_tokens.delete()` stops a token from working immediately; a token can only delete tokens whose abilities it also has.
+`team.api_tokens.create()` creates a team API token. The new token can only have abilities that the requesting token has. It copies the requesting token's IP allowlist, and it can't outlive the requesting token: `expires_at` defaults to, and can't be later than, its expiry. The value (`data["token"]`) is only returned once, so store it right away. `team.api_tokens.update()` renames a token or replaces its abilities: `abilities` is the token's complete new list. A token can only change tokens whose abilities it also has, and only to abilities it has; to add abilities, the changed token must be limited to the requesting token's IP allowlist and must not expire after it. `team.api_tokens.delete()` stops a token from working immediately; a token can only delete tokens whose abilities it also has.
 
 ```python
 created = lettermint.team.api_tokens.create({
@@ -327,6 +327,9 @@ created = lettermint.team.api_tokens.create({
     "expires_at": "2027-01-01T00:00:00Z",
 })
 print(created["data"]["token"])  # shown once
+lettermint.team.api_tokens.update(
+    created["data"]["id"], {"abilities": ["read:domains", "read:messages"]}
+)
 lettermint.team.api_tokens.delete(created["data"]["id"])
 ```
 

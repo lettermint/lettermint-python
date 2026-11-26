@@ -99,6 +99,7 @@ from .._generated.types import (
     UpdateProjectData,
     UpdateReportForwardingResponse,
     UpdateRouteData,
+    UpdateTeamApiTokenData,
     UpdateTeamData,
     UpdateTeamInviteData,
     UpdateTeamMemberAssignmentData,
@@ -1037,6 +1038,28 @@ class AsyncTeamApiTokens(AsyncResource):
             TeamApiTokenCreatedResponse,
             await self._request(
                 "POST /team/api-tokens", "team.api_tokens.create", body=body, timeout=timeout
+            ),
+        )
+
+    async def update(
+        self, token_id: str, body: UpdateTeamApiTokenData, *, timeout: float | None = None
+    ) -> TeamApiToken:
+        """Renames a team API token or replaces its abilities.
+
+        ``abilities`` replaces the token's complete list. A token can only change tokens whose
+        abilities it also has, and only to abilities it has (HTTP 403 otherwise). To add
+        abilities, the changed token must be limited to the requesting token's IP allowlist and
+        must not expire after it. Leave a field out to keep it. Returns the updated token
+        metadata; the token value is not returned again.
+        """
+        return cast(
+            TeamApiToken,
+            await self._request(
+                "PUT /team/api-tokens/{tokenId}",
+                "team.api_tokens.update",
+                path={"tokenId": token_id},
+                body=body,
+                timeout=timeout,
             ),
         )
 
